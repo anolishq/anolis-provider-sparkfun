@@ -141,8 +141,6 @@ class FakeSCMD(RegisterChip):
                 self.registers[self.REG_RO_WRITE_CNT] = min(0xFF, self.registers[self.REG_RO_WRITE_CNT] + 1)
                 return
             self.registers[data[0]] = data[1]
-            if data[0] == self.FSAFE_TIME:
-                self._fed = self.clock()
 
     def select(self, register: int) -> None:
         self._tick()

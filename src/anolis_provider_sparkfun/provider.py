@@ -186,7 +186,8 @@ class SparkFunProvider(Provider):
         try:
             slot.driver = slot.kind(self._bus, slot.address, slot.options)
         except (OSError, ValueError, RuntimeError) as err:
-            # ValueError: no device at the address; RuntimeError: something else is there.
+            # OSError: nothing acknowledged the address (or the bus failed); ValueError:
+            # another chip answers there; RuntimeError: the board has not finished starting.
             if isinstance(err, OSError) and not _is_bus_error(err):
                 raise
             slot.driver = None

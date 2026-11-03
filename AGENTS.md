@@ -12,9 +12,10 @@ Per-repo conventions for coding agents.
 
 ## Design rules
 
-- **The SDK on top of the vendor's driver.** A board module declares the device type and calls SparkFun's driver. No
-  register-level code outside `mock.py`; if a driver is missing or broken, fix it upstream or write a driver as its own
-  package, not inside a board module.
+- **The SDK on top of the vendor's driver.** A board module declares the device type and calls SparkFun's driver. A
+  register the driver does not wrap may be read or written through the driver's own bus and register constants (as
+  `scmd.py` does for the drive read-back and the watchdog); anything more, such as a protocol or a calculation the
+  driver lacks, is fixed upstream or written as a driver in its own package, not inside a board module.
 - **Mock mode runs the real driver.** The fake bus emulates the chip's registers; never stub the driver itself.
 - **Only I2C transfer errors mean a board is unreachable** (`_BUS_ERRNOS` in `provider.py`). Any other exception is a
   provider fault and must surface as one.
