@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: provider-sparkfun-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Format, lint, typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Install locked dev environment
+        run: uv sync --locked --extra dev
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Lint
+        run: uv run ruff check . --output-format=github
+      - name: Typecheck
+        run: uv run mypy
+
+  test:
+    name: Tests and conformance (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Install locked dev environment
+        run: uv sync --locked --extra dev --python ${{ matrix.python-version }}
+      # Includes the anolis-protocol conformance harness against the provider in
+      # mock mode, which must pass with no skip beyond EXPECTED_SKIPS.
+      - name: Tests
+        run: uv run pytest
+
+  frozen:
+    name: Frozen binary (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Build the frozen binary
+        run: |
+          uv sync --locked --extra dev --extra freeze --python 3.13
+          uv run pyinstaller --clean --noconfirm packaging/anolis-provider-sparkfun.spec
+      # The release artifact, not the source install, under the harness: a module
+      # or data file the freeze missed shows up here and nowhere else.
+      - name: Conformance against the frozen binary
+        run: ANOLIS_PROVIDER_BIN="$PWD/dist/anolis-provider-sparkfun" uv run pytest -s tests/test_conformance.py
+      - name: Cold start
+        run: python3 scripts/cold_start.py dist/anolis-provider-sparkfun config/conformance.yaml --runs 5
+
+  docs:
+    name: Docs
+    permissions:
+      contents: read
+    uses: anolishq/.github/.github/workflows/docs-check.yml@0afd073b878c469f78a52f24020b1c3a49ae4fee # v2
+
+  ok:
+    name: ok
+    if: always()
+    needs: [check, test, frozen, docs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate job results
+        run: |
+          echo "Job results: ${{ toJSON(needs.*.result) }}"
+      - name: Fail if any required job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

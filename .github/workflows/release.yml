@@ -1,0 +1,126 @@
+name: Release
+
+# On a v* tag: build the frozen binary on x86_64 and arm64, run the conformance
+# harness against each, and publish what anolis install.sh and the Workbench
+# read (anolis docs/deploy/install-sh.md, "What a provider release must provide"):
+#   anolis-provider-sparkfun-<version>-linux-<arch>.tar.gz   bin/anolis-provider-sparkfun at the root
+#   SHA256SUMS                                               every tarball
+#   anolis-provider-sparkfun-<version>-config-schema.json    the --config-schema envelope
+#   anolis-provider-sparkfun-<version>-config-schema-manifest.json
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (linux-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Check the tag matches the package version
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          declared="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          if [ "$version" != "$declared" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match pyproject.toml version ${declared}"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Build the frozen binary
+        run: |
+          uv sync --locked --extra dev --extra freeze --python 3.13
+          uv run pyinstaller --clean --noconfirm packaging/anolis-provider-sparkfun.spec
+
+      - name: Conformance against the frozen binary
+        run: ANOLIS_PROVIDER_BIN="$PWD/dist/anolis-provider-sparkfun" uv run pytest -s tests/test_conformance.py
+
+      - name: Check the binary reports the tagged version
+        run: |
+          reported="$(dist/anolis-provider-sparkfun --version)"
+          [ "$reported" = "anolis-provider-sparkfun ${{ steps.version.outputs.version }}" ] || {
+            echo "::error::--version printed '${reported}'"
+            exit 1
+          }
+
+      - name: Package
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          mkdir -p staging/bin out
+          cp dist/anolis-provider-sparkfun staging/bin/
+          tar -czf "out/anolis-provider-sparkfun-${version}-linux-${{ matrix.arch }}.tar.gz" -C staging .
+          tar -tzf "out/anolis-provider-sparkfun-${version}-linux-${{ matrix.arch }}.tar.gz"
+
+      - name: Emit the config schema envelope (executable profile v1 §2)
+        if: matrix.arch == 'x86_64'
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          envelope="anolis-provider-sparkfun-${version}-config-schema.json"
+          dist/anolis-provider-sparkfun --config-schema > "out/${envelope}"
+          python3 - "out/${envelope}" <<'EOF'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          v = d.get("config_schema_version")
+          assert isinstance(v, int) and not isinstance(v, bool) and v >= 1 and isinstance(d.get("schema"), dict), "invalid envelope"
+          EOF
+          sha="$(sha256sum "out/${envelope}" | cut -d' ' -f1)"
+          jq -n \
+            --argjson schema_version 1 \
+            --arg repo "${GITHUB_REPOSITORY}" \
+            --arg component "provider-config-schema" \
+            --arg version "${version}" \
+            --arg asset "${envelope}" \
+            --arg sha256 "${sha}" \
+            '{schema_version: $schema_version, repo: $repo, component: $component, version: $version, asset: $asset, sha256: $sha256}' \
+            > "out/anolis-provider-sparkfun-${version}-config-schema-manifest.json"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-${{ matrix.arch }}
+          path: out/
+          if-no-files-found: error
+
+  publish:
+    name: Publish the release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: out
+        run: |
+          sha256sum *.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          [ "$(wc -l < SHA256SUMS)" -eq 2 ] || { echo "::error::expected one tarball per architecture"; exit 1; }
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" out/* --repo "${GITHUB_REPOSITORY}" --title "${GITHUB_REF_NAME}" --generate-notes

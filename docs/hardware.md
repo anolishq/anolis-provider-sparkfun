@@ -1,0 +1,92 @@
+# Hardware
+
+## Wiring a STEMMA QT or Qwiic board to a Raspberry Pi
+
+STEMMA QT and Qwiic use the same 4-pin JST SH connector and pinout, and both
+run at 3.3 V. Use a STEMMA QT/Qwiic cable to female jumpers, or a Qwiic adapter
+board for the Pi header:
+
+| Cable wire | Pi header pin |
+| --- | --- |
+| red, 3.3 V | 1 |
+| blue, SDA | 3 (GPIO 2) |
+| yellow, SCL | 5 (GPIO 3) |
+| black, GND | 6 |
+
+Boards daisy-chain on the same cable run: each needs its own address on the bus.
+
+## The Qwiic Motor Driver
+
+A Qwiic board with two DC motor channels, A and B, run by SparkFun's Serial
+Controlled Motor Driver (SCMD) firmware. It daisy-chains on the Qwiic cable
+like any other board.
+
+- **Motor power is separate.** Motors run from the board's own motor supply
+  input (SparkFun: 3 to 11 V, 12 V absolute maximum), not from the Qwiic cable.
+  SparkFun rates each channel 1.2 A steady, 1.5 A peak; size the supply for the
+  motors' stall current.
+- **Channels:** A and B, one DC motor each. A motor that turns the wrong way for
+  a positive throttle: swap its two wires.
+- **Address:** `0x5D` from the factory. The config jumpers on the underside
+  select `0x58` to `0x61`; the firmware reads them only at power-on.
+- **Check it:** `i2cdetect -y 1` shows `5d`.
+
+The provider stops both channels and arms the board's watchdog when it
+connects. Before the first run, check that each motor can turn freely and that
+nothing is attached that would move when it spins.
+
+### Bench check of the software stop and the watchdog
+
+With the runtime config's `safety.safe_state.zero_is_safe: true`, a motor on
+channel A, and `failsafe_ms` at its default of 2000:
+
+```sh
+TOKEN=...   # from /etc/anolis/runtime.env when auth is on
+H="Authorization: Bearer $TOKEN"
+curl -s -H "$H" http://127.0.0.1:8080/v0/runtime/status | jq .startup_safe_state
+curl -s -H "$H" -X POST http://127.0.0.1:8080/v0/call -H "Content-Type: application/json" \
+  -d '{"provider_id":"sparkfun0","device_id":"drive0","function_id":1,"args":{"throttle":{"type":"double","double":0.3}}}'
+curl -s -H "$H" -X POST http://127.0.0.1:8080/v0/estop | jq .safe_state_achieved
+curl -s -H "$H" "http://127.0.0.1:8080/v0/state/sparkfun0/drive0?signal_id=motor_a_throttle" | jq '.values[0].value'
+curl -s -H "$H" -X POST http://127.0.0.1:8080/v0/estop/clear
+```
+
+The motor should spin at the call, stop at the stop, and read back 0. Function
+ids follow the channels: `set_motor_a_throttle` is 1, `set_motor_b_throttle` 2.
+
+Then the watchdog: start the motor again with the same call, and stop the
+runtime (`sudo systemctl stop anolis-runtime`, or kill it). The motor should
+stop within about two seconds with nothing else done. After the runtime is back,
+`failsafe_trips` reads 1 or more.
+
+## Preparing the host
+
+On Raspberry Pi OS:
+
+```sh
+sudo raspi-config nonint do_i2c 0   # enable I2C, then reboot
+sudo usermod -aG i2c anolis         # the service user opens /dev/i2c-1
+sudo apt install i2c-tools          # optional: i2cdetect for checking wiring
+i2cdetect -y 1                      # a Qwiic Motor Driver shows as 5d
+```
+
+`install.sh` runs the provider's `--check-host` before installing and stops on
+an unmet requirement. The provider reports whether `/dev/i2c-<n>` exists and
+whether the user it runs as can open it.
+
+## Measuring start-up time on the target
+
+The runtime waits `hello_timeout_ms` (default 5000) for a provider's Hello
+reply, then `ready_timeout_ms` for start-up to finish. The release binary is a
+single self-extracting file, so its start-up is slower than a source install,
+and slowest on first launch after boot. Measure it on the target with only
+`python3` and the binary:
+
+```sh
+python3 scripts/cold_start.py /opt/anolis/bin/anolis-provider-sparkfun \
+  /opt/anolis/projects/<project>/config/provider-sparkfun.yaml --runs 5
+```
+
+It prints the median and slowest time to the Hello reply and to the WaitReady
+reply, and exits 1 if the slowest Hello is over `--hello-budget-ms`. Set the
+runtime's `hello_timeout_ms` with room above the slowest figure.

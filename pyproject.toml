@@ -1,0 +1,63 @@
+[project]
+name = "anolis-provider-sparkfun"
+version = "0.0.0"
+description = "Anolis device provider for SparkFun Qwiic hardware, built on SparkFun's Qwiic Python drivers"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+dependencies = [
+    # The Python provider SDK. Not on PyPI yet: pinned to a commit on its main branch.
+    "anolis-provider-sdk @ git+https://github.com/anolishq/anolis-provider-sdk-python@84cfe6c188d301766833c403765ba14d8d80b44b",
+    # SparkFun's drivers, and the bus library they and the provider share.
+    "sparkfun-qwiic-scmd>=2.0,<3",
+    "smbus2>=0.5,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "anolis-protocol[conformance] @ https://github.com/anolishq/anolis-protocol/releases/download/v1.10.0/anolis_protocol-1.10.0-py3-none-any.whl",
+    "ruff>=0.15.0,<1.0.0",
+    "mypy>=1.13",
+    "pytest>=8",
+    "types-PyYAML>=6.0",
+    "types-protobuf>=5",
+    "types-jsonschema>=4.17",
+]
+freeze = [
+    "pyinstaller>=6.10,<7",
+]
+
+[project.scripts]
+anolis-provider-sparkfun = "anolis_provider_sparkfun.provider:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/anolis_provider_sparkfun"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+# Generated protobuf modules and the SparkFun drivers ship without type stubs.
+module = ["anolis.*", "qwiic_scmd", "qwiic_i2c.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers -ra"
+markers = ["conformance: runs the anolis-protocol conformance harness against the provider in mock mode"]
