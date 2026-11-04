@@ -52,5 +52,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The ADS1015 identity check writes back the config word it found when the
   chip at the address is not an ADS1015, so a TMP102 at 0x48 is no longer left
   shut down by the probe.
+- The staged SHT4x driver waits 10 ms for the serial-number reply, as long as
+  for a measurement and as Adafruit's SHT4x driver does, instead of 1 ms.
 
 [Unreleased]: https://github.com/anolishq/anolis-provider-sparkfun/commits/main
