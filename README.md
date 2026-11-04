@@ -16,6 +16,7 @@ already maintains.
 | `type` | Board | Driver | Addresses |
 | --- | --- | --- | --- |
 | `bme280` | Qwiic Atmospheric Sensor (SEN-15440), and the BME280 on SparkFun's Environmental Combo: temperature, humidity, pressure | `sparkfun-qwiic-bme280` | `0x77` (default), `0x76` |
+| `scd4x` | Qwiic CO2 Humidity and Temperature Sensor, SCD40 or SCD41 (SCD41: SEN-22396): CO2, temperature, humidity | `sparkfun-qwiic-scd4x` | `0x62` |
 | `scmd` | Qwiic Motor Driver (ROB-15451), and the Serial Controlled Motor Driver (ROB-13911) strapped for I2C: two DC motors | `sparkfun-qwiic-scmd` | `0x5D` (default), `0x58` to `0x61` |
 
 All boards share one Linux I2C bus (`i2c_bus`, default 1: the Raspberry Pi
@@ -33,6 +34,9 @@ devices:
   - id: env0
     type: bme280
     label: Enclosure air
+  - id: air0
+    type: scd4x
+    label: Enclosure CO2
 ```
 
 `mock: true` replaces the bus with a simulated one holding a register model of
@@ -51,6 +55,21 @@ cable recovers it without a restart.
 `soft_reset`. The provider refuses a BMP280 at the address, which has no
 humidity sensor, and sets the chip up again if it finds it has restarted on its
 own: a restarted BME280 does not fail, it reads plausible wrong values.
+
+## The SCD4x
+
+`scd4x` reads `co2` (ppm), `temperature` (C) and `relative_humidity` (%). The
+sensor measures every 5 seconds on its own, so a read returns the latest
+measurement, stamped with the time it was fetched. Until the first one, about
+5 seconds after start-up, each signal reads NaN with quality `UNKNOWN`; a
+measurement older than 15 seconds reads `STALE`. `set_ambient_pressure` (hPa)
+compensates the CO2 reading, for example from a BME280 on the same bus. A
+sensor that restarted on its own stops measuring without an error; the provider
+notices when no measurement has arrived for 15 seconds and starts it again.
+
+Connecting stops any measurement already running, which the sensor answers
+only after 500 ms, so a configured SCD4x adds half a second to the provider's
+start-up.
 
 ## Motors, the software stop and the watchdog
 

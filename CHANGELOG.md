@@ -16,7 +16,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The Bosch BME280 (`bme280`): temperature, humidity and pressure, with the
   same device type as the Adafruit provider's. A BMP280 at the address is
   refused, and a chip that restarted on its own is set up again.
-- Mock mode: a simulated bus with a register model of each board (the SCMD firmware, the BME280) that
+- The Sensirion SCD40 and SCD41 (`scd4x`): CO2, temperature and humidity,
+  measured every 5 seconds, with each reading stamped with when it was fetched.
+  NaN with quality UNKNOWN until the first measurement; a sensor that stopped
+  measuring is started again.
+- Mock mode: a simulated bus with a register model of each board (the SCMD firmware, the BME280, the SCD4x) that
   SparkFun's driver runs against unchanged.
 
 [Unreleased]: https://github.com/anolishq/anolis-provider-sparkfun/commits/main

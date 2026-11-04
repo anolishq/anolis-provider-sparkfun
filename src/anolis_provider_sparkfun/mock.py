@@ -150,6 +150,133 @@ class FakeBME280(RegisterChip):
         return super().read(length)
 
 
+def sensirion_crc(data: bytes) -> int:
+    """CRC-8 over a 16-bit word, as Sensirion sensors send and check it:
+    polynomial 0x31, initial value 0xFF."""
+    crc = 0xFF
+    for byte in data:
+        crc ^= byte
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x31) if crc & 0x80 else crc << 1
+    return crc & 0xFF
+
+
+class FakeSCD4x:
+    """A Sensirion SCD40 or SCD41 CO2 sensor (datasheet version 1.5): 16-bit
+    commands, 16-bit words each followed by a CRC, and a measurement every
+    5 seconds while periodic measurement runs.
+
+    Modelled because a driver or the provider can get each of them wrong:
+
+    - Power-on (and a restart on a brown-out) leaves it idle: nothing is
+      measured until start_periodic_measurement, so a restarted sensor just
+      stops producing data.
+    - While periodic measurement runs it accepts only read_measurement,
+      get_data_ready_status, set_ambient_pressure and stop; any other command
+      is not acknowledged. After stop it acknowledges nothing for 500 ms.
+    - read_measurement with no new measurement is not acknowledged, and a
+      measurement is read out once.
+    - A word sent with an argument carries a CRC; one with a wrong CRC is
+      ignored.
+
+    The serial number and the feature-set word are made-up values; the
+    feature set has the bit the driver reads for the sensor type. ``clock`` is
+    in seconds; tests pass their own to step time.
+    """
+
+    START_PERIODIC, READ_MEASUREMENT, STOP_PERIODIC = 0x21B1, 0xEC05, 0x3F86
+    SET_AMBIENT_PRESSURE, GET_DATA_READY = 0xE000, 0xE4B8
+    SET_ASC, GET_ASC = 0x2416, 0x2313
+    GET_SERIAL, GET_FEATURE_SET = 0x3682, 0x202F
+    PERIOD_S, STOP_S = 5.0, 0.5
+    _PERIODIC_OK = frozenset({READ_MEASUREMENT, GET_DATA_READY, SET_AMBIENT_PRESSURE, STOP_PERIODIC})
+    SERIAL = (0x1234, 0x5678, 0x9ABC)
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic, *, scd41: bool = True) -> None:
+        self.clock = clock
+        self.scd41 = scd41
+        self.co2, self.temperature, self.humidity = 600, 22.5, 40.0
+        self.power_cycle()
+
+    def power_cycle(self) -> None:
+        """Idle, at the power-on settings."""
+        self.periodic = False
+        self.asc = True
+        self.ambient_pressure_hpa: int | None = None
+        self._started = 0.0
+        self._read_out = 0  # measurements read out since periodic measurement started
+        self._busy_until = 0.0
+        self._response = b""
+
+    def set_measurement(self, *, co2: int, temperature: float, humidity: float) -> None:
+        """What the next measurement reports."""
+        self.co2, self.temperature, self.humidity = co2, temperature, humidity
+
+    def _measured(self) -> int:
+        """Measurements completed since periodic measurement started."""
+        return int((self.clock() - self._started) // self.PERIOD_S) if self.periodic else 0
+
+    def _ready(self) -> bool:
+        return self._measured() > self._read_out
+
+    @staticmethod
+    def _words(*words: int) -> bytes:
+        out = bytearray()
+        for w in words:
+            pair = w.to_bytes(2, "big")
+            out += pair + bytes([sensirion_crc(pair)])
+        return bytes(out)
+
+    def _nack(self) -> OSError:
+        return OSError(121, "Remote I/O error")
+
+    def write(self, data: bytes) -> None:
+        if self.clock() < self._busy_until:
+            raise self._nack()
+        command = int.from_bytes(data[:2], "big")
+        arg = None
+        if len(data) == 5:
+            if sensirion_crc(data[2:4]) != data[4]:
+                return
+            arg = int.from_bytes(data[2:4], "big")
+        if self.periodic and command not in self._PERIODIC_OK:
+            raise self._nack()
+        self._response = b""
+        if command == self.START_PERIODIC:
+            self.periodic, self._started, self._read_out = True, self.clock(), 0
+        elif command == self.STOP_PERIODIC:
+            self.periodic = False
+            self._busy_until = self.clock() + self.STOP_S
+        elif command == self.GET_DATA_READY:
+            self._response = self._words(0x8006 if self._ready() else 0x8000)
+        elif command == self.READ_MEASUREMENT:
+            if not self._ready():
+                raise self._nack()
+            self._read_out = self._measured()
+            t = round((self.temperature + 45) * 65536 / 175)
+            rh = round(self.humidity * 65536 / 100)
+            self._response = self._words(self.co2, min(t, 0xFFFF), min(rh, 0xFFFF))
+        elif command == self.SET_AMBIENT_PRESSURE and arg is not None:
+            self.ambient_pressure_hpa = arg
+        elif command == self.SET_ASC and arg is not None:
+            self.asc = bool(arg)
+        elif command == self.GET_ASC:
+            self._response = self._words(int(self.asc))
+        elif command == self.GET_SERIAL:
+            self._response = self._words(*self.SERIAL)
+        elif command == self.GET_FEATURE_SET:
+            self._response = self._words(0x1440 if self.scd41 else 0x0440)
+
+    def select(self, register: int) -> None:
+        raise NotImplementedError("the SCD4x has no register pointer: it takes 16-bit commands")
+
+    def read(self, length: int) -> bytes:
+        if self.clock() < self._busy_until or not self._response:
+            raise self._nack()
+        out, self._response = self._response[:length], b""
+        return out
+
+
 class FakeSCMD(RegisterChip):
     """The SparkFun Serial Controlled Motor Driver (SCMD) firmware, as the
     Qwiic Motor Driver runs it: the user-port register map, at the values the

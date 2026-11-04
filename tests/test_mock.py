@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 import qwiic_scmd
 
-from anolis_provider_sparkfun.mock import FakeBME280, FakeQwiicBus, FakeSCMD
+from anolis_provider_sparkfun.mock import FakeBME280, FakeQwiicBus, FakeSCD4x, FakeSCMD, sensirion_crc
 
 ADDRESS = 0x5D
 
@@ -165,3 +165,53 @@ def test_the_bme280_soft_reset_restores_power_on_values_and_calibration_is_read_
     assert chip.registers[0x88] != 0x00
     bus.writeByte(0x77, FakeBME280.RESET_REG, 0xB6)
     assert chip.registers[FakeBME280.CTRL_MEAS] == 0
+
+
+def test_the_scd4x_takes_only_four_commands_while_measuring() -> None:
+    chip = FakeSCD4x(Clock())
+    chip.write(FakeSCD4x.START_PERIODIC.to_bytes(2, "big"))
+    with pytest.raises(OSError):
+        chip.write(FakeSCD4x.GET_SERIAL.to_bytes(2, "big"))
+    chip.write(FakeSCD4x.GET_DATA_READY.to_bytes(2, "big"))
+    assert chip.read(3)[:2] == b"\x80\x00"
+
+
+def test_the_scd4x_answers_nothing_for_500_ms_after_stop() -> None:
+    clock = Clock()
+    chip = FakeSCD4x(clock)
+    chip.write(FakeSCD4x.START_PERIODIC.to_bytes(2, "big"))
+    chip.write(FakeSCD4x.STOP_PERIODIC.to_bytes(2, "big"))
+    clock.now += 0.49
+    with pytest.raises(OSError):
+        chip.write(FakeSCD4x.GET_SERIAL.to_bytes(2, "big"))
+    clock.now += 0.02
+    chip.write(FakeSCD4x.GET_SERIAL.to_bytes(2, "big"))
+    assert len(chip.read(9)) == 9
+
+
+def test_the_scd4x_reads_out_each_measurement_once() -> None:
+    clock = Clock()
+    chip = FakeSCD4x(clock)
+    chip.write(FakeSCD4x.START_PERIODIC.to_bytes(2, "big"))
+    with pytest.raises(OSError):
+        chip.write(FakeSCD4x.READ_MEASUREMENT.to_bytes(2, "big"))  # nothing measured yet
+    clock.now += 5.0
+    chip.write(FakeSCD4x.READ_MEASUREMENT.to_bytes(2, "big"))
+    words = chip.read(9)
+    assert int.from_bytes(words[0:2], "big") == 600
+    assert all(sensirion_crc(words[i : i + 2]) == words[i + 2] for i in (0, 3, 6))
+    with pytest.raises(OSError):
+        chip.write(FakeSCD4x.READ_MEASUREMENT.to_bytes(2, "big"))
+
+
+def test_the_scd4x_ignores_an_argument_with_a_bad_crc() -> None:
+    chip = FakeSCD4x(Clock())
+    arg = (1000).to_bytes(2, "big")
+    chip.write(FakeSCD4x.SET_AMBIENT_PRESSURE.to_bytes(2, "big") + arg + bytes([sensirion_crc(arg) ^ 1]))
+    assert chip.ambient_pressure_hpa is None
+    chip.write(FakeSCD4x.SET_AMBIENT_PRESSURE.to_bytes(2, "big") + arg + bytes([sensirion_crc(arg)]))
+    assert chip.ambient_pressure_hpa == 1000
+
+
+def test_sensirion_crc_matches_the_datasheet_example() -> None:
+    assert sensirion_crc(b"\xbe\xef") == 0x92
