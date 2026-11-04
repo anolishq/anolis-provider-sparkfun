@@ -72,6 +72,24 @@ pressure.
 - **Placement:** keep it away from warm parts, the Pi's processor and motor
   drivers included; it reads its own surroundings.
 
+## The SCD4x
+
+The Qwiic CO2 sensor carries a Sensirion SCD40 or SCD41: true CO2 by NDIR, with
+temperature and humidity.
+
+- **Address:** `0x62`, fixed: one per bus.
+- **Check it:** `i2cdetect -y 1` shows `62`. Give it a minute after start-up,
+  then expect roughly 400 to 1000 ppm indoors; breathing near it raises the
+  reading within a few measurements.
+- **Calibration:** automatic self-calibration is on, the sensor's default. It
+  assumes the sensor sees fresh air (about 400 ppm) at some point every week;
+  in a space that never does, readings drift.
+- **Pressure:** the CO2 reading depends on air pressure. Pass a BME280's
+  `pressure` to `set_ambient_pressure` for the best accuracy; it is not kept
+  across a restart of the provider.
+- **Placement:** the sensor warms itself slightly, so its temperature reads
+  above the room's.
+
 ## Preparing the host
 
 On Raspberry Pi OS:
