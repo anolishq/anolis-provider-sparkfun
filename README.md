@@ -90,10 +90,11 @@ a reading that fails its CRC reports the board unavailable and is retried.
 sensor measures every 5 seconds on its own, so a read returns the latest
 measurement, stamped with the time it was fetched. Until the first one, about
 5 seconds after start-up, each signal reads NaN with quality `UNKNOWN`; a
-measurement older than 15 seconds reads `STALE`. `set_ambient_pressure` (hPa)
+measurement older than 12 seconds reads `STALE`. `set_ambient_pressure` (hPa)
 compensates the CO2 reading, for example from a BME280 on the same bus. A
 sensor that restarted on its own stops measuring without an error; the provider
-notices when no measurement has arrived for 15 seconds and starts it again.
+notices when no measurement has arrived for 20 seconds and starts it again,
+so a stuck sensor reads `STALE` for a while first.
 
 Connecting stops any measurement already running, which the sensor answers
 only after 500 ms, so a configured SCD4x adds half a second to the provider's
