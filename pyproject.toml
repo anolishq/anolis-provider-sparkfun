@@ -41,7 +41,7 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/anolis_provider_sparkfun"]
+packages = ["src/anolis_provider_sparkfun", "src/anolis_qwiic_staging"]
 
 [tool.ruff]
 line-length = 120

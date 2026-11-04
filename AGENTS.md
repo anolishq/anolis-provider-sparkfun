@@ -16,6 +16,10 @@ Per-repo conventions for coding agents.
   register the driver does not wrap may be read or written through the driver's own bus and register constants (as
   `scmd.py` does for the drive read-back and the watchdog); anything more, such as a protocol or a calculation the
   driver lacks, is fixed upstream or written as a driver in its own package, not inside a board module.
+- **Drivers SparkFun lacks live in `src/anolis_qwiic_staging/`.** One module per chip, in SparkFun's driver
+  conventions, using only the `qwiic_i2c` bus interface and importing nothing from the provider
+  (`test_the_staging_package_imports_nothing_from_the_provider`). Each is staged to be offered to SparkFun once
+  proven on hardware, and deleted here when SparkFun publishes it.
 - **Mock mode runs the real driver.** The fake bus emulates the chip's registers; never stub the driver itself.
 - **Only I2C transfer errors mean a board is unreachable** (`_BUS_ERRNOS` in `provider.py`). Any other exception is a
   provider fault and must surface as one.

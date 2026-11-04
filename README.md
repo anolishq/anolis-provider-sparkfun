@@ -17,6 +17,8 @@ already maintains.
 | --- | --- | --- | --- |
 | `ads1015` | Qwiic 12 Bit ADC - 4 Channel (DEV-15334): four analog inputs, in volts | `sparkfun-qwiic-ads1015` | `0x48` (default), `0x49` to `0x4B` |
 | `bme280` | Qwiic Atmospheric Sensor (SEN-15440), and the BME280 on SparkFun's Environmental Combo: temperature, humidity, pressure | `sparkfun-qwiic-bme280` | `0x77` (default), `0x76` |
+| `sht4x` | SparkFun boards with a Sensirion SHT40, SHT41 or SHT45: temperature, humidity | `anolis_qwiic_staging.qwiic_sht4x` (in this repo) | `0x44` |
+| `shtc3` | SparkFun boards with a Sensirion SHTC3: temperature, humidity | `anolis_qwiic_staging.qwiic_shtc3` (in this repo) | `0x70` |
 | `scd4x` | Qwiic CO2 Humidity and Temperature Sensor, SCD40 or SCD41 (SCD41: SEN-22396): CO2, temperature, humidity | `sparkfun-qwiic-scd4x` | `0x62` |
 | `scmd` | Qwiic Motor Driver (ROB-15451), and the Serial Controlled Motor Driver (ROB-13911) strapped for I2C: two DC motors | `sparkfun-qwiic-scmd` | `0x5D` (default), `0x58` to `0x61` |
 
@@ -68,6 +70,16 @@ slightly negative input reads negative.
 `soft_reset`. The provider refuses a BMP280 at the address, which has no
 humidity sensor, and sets the chip up again if it finds it has restarted on its
 own: a restarted BME280 does not fail, it reads plausible wrong values.
+
+## The SHT4x and SHTC3
+
+`sht4x` and `shtc3` read `temperature` (C) and `relative_humidity` (%), with
+the same device types as the Adafruit provider's. SparkFun's Qwiic Python
+package has no driver for these chips, so this repo carries its own, in
+SparkFun's driver style, in `src/anolis_qwiic_staging/`: they are staged to be
+offered to SparkFun once proven on hardware, and replaced by SparkFun's
+package when it publishes them. A chip that fails its id check is refused, and
+a reading that fails its CRC reports the board unavailable and is retried.
 
 ## The SCD4x
 

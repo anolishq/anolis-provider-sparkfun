@@ -1,4 +1,4 @@
-# Mock-mode config for the conformance harness and CI: two environmental
+# Mock-mode config for the conformance harness and CI: four environmental
 # sensors, an ADC and two motor drivers, one with the watchdog off, on a simulated bus. No
 # hardware needed. The harness calls functions on the first device that has
 # any, so the BME280 comes first: it has both a no-argument function and one
@@ -21,3 +21,9 @@ devices:
     type: scmd
     address: 0x58
     failsafe_ms: 0
+  - id: rh0
+    type: sht4x
+    label: Humidity sensor 0
+  - id: rh1
+    type: shtc3
+    label: Humidity sensor 1

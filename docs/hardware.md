@@ -87,6 +87,19 @@ pressure.
 - **Placement:** keep it away from warm parts, the Pi's processor and motor
   drivers included; it reads its own surroundings.
 
+## The SHT4x and SHTC3
+
+Sensirion temperature and humidity sensors on SparkFun Qwiic boards: the
+SHT40, SHT41 and SHT45 (`sht4x`) and the SHTC3 (`shtc3`).
+
+- **Address:** `0x44` for the SHT4x, `0x70` for the SHTC3, both fixed: one of
+  each per bus.
+- **Check it:** `i2cdetect -y 1` shows `44`. An SHTC3 that the provider has
+  already used is asleep between readings and may not show in `i2cdetect`;
+  the provider wakes it for each reading.
+- **Heater:** the SHT4x has a built-in heater, which the provider never turns
+  on: run for long, it damages the sensor.
+
 ## The SCD4x
 
 The Qwiic CO2 sensor carries a Sensirion SCD40 or SCD41: true CO2 by NDIR, with

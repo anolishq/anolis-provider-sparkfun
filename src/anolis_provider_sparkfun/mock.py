@@ -369,6 +369,97 @@ class FakeSCD4x:
         return out
 
 
+def sensirion_words(*words: int) -> bytes:
+    """16-bit words, each followed by its CRC, as a Sensirion sensor replies."""
+    out = bytearray()
+    for w in words:
+        pair = w.to_bytes(2, "big")
+        out += pair + bytes([sensirion_crc(pair)])
+    return bytes(out)
+
+
+class _SensirionHumidity:
+    """What the SHT4x and SHTC3 have in common: a command, then a read of the
+    reply; a read with no reply pending is not acknowledged, and bytes read
+    past a short reply see the idle bus, 0xFF."""
+
+    def __init__(self) -> None:
+        self.temperature, self.humidity = 22.5, 40.0
+        self._reply = b""
+
+    def set_measurement(self, *, temperature: float, humidity: float) -> None:
+        self.temperature, self.humidity = temperature, humidity
+
+    def select(self, register: int) -> None:
+        raise NotImplementedError("Sensirion sensors have no register pointer: they take commands")
+
+    def read(self, length: int) -> bytes:
+        if not self._reply:
+            raise OSError(121, "Remote I/O error")
+        out, self._reply = self._reply[:length].ljust(length, b"\xff"), b""
+        return out
+
+
+class FakeSHT4x(_SensirionHumidity):
+    """A Sensirion SHT40/41/45: one-byte commands, a measurement reply of
+    temperature and humidity words with CRCs, and a 32-bit serial number. Raw
+    values follow the datasheet, T = -45 + 175 * raw / 65535 and
+    RH = -6 + 125 * raw / 65535. The heater commands are not modelled: the
+    provider never sends them."""
+
+    MEASURE_HIGH, SERIAL, SOFT_RESET = 0xFD, 0x89, 0x94
+    SERIAL_NUMBER = 0x12345678
+
+    def write(self, data: bytes) -> None:
+        if not data:
+            return
+        command = data[0]
+        self._reply = b""
+        if command == self.MEASURE_HIGH:
+            t = round((self.temperature + 45) * 65535 / 175)
+            rh = round((self.humidity + 6) * 65535 / 125)
+            self._reply = sensirion_words(max(0, min(t, 0xFFFF)), max(0, min(rh, 0xFFFF)))
+        elif command == self.SERIAL:
+            self._reply = sensirion_words(self.SERIAL_NUMBER >> 16, self.SERIAL_NUMBER & 0xFFFF)
+        elif command != self.SOFT_RESET:
+            raise OSError(121, "Remote I/O error")
+
+
+class FakeSHTC3(_SensirionHumidity):
+    """A Sensirion SHTC3: two-byte commands, and a sleep mode in which it
+    acknowledges nothing but the wake-up command. Power-on leaves it awake.
+    Raw values follow the datasheet, T = -45 + 175 * raw / 65536 and
+    RH = 100 * raw / 65536."""
+
+    WAKEUP, SLEEP, SOFT_RESET, READ_ID = 0x3517, 0xB098, 0x805D, 0xEFC8
+    MEASURE_NORMAL_T_FIRST = 0x7866
+    ID = 0x0887  # the bits the datasheet defines read 0x0807
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.asleep = False
+
+    def write(self, data: bytes) -> None:
+        if not data:
+            return
+        command = int.from_bytes(data[:2], "big")
+        if self.asleep and command != self.WAKEUP:
+            raise OSError(121, "Remote I/O error")
+        self._reply = b""
+        if command == self.WAKEUP:
+            self.asleep = False
+        elif command == self.SLEEP:
+            self.asleep = True
+        elif command == self.READ_ID:
+            self._reply = sensirion_words(self.ID)
+        elif command == self.MEASURE_NORMAL_T_FIRST:
+            t = round((self.temperature + 45) * 65536 / 175)
+            rh = round(self.humidity * 65536 / 100)
+            self._reply = sensirion_words(max(0, min(t, 0xFFFF)), max(0, min(rh, 0xFFFF)))
+        elif command != self.SOFT_RESET:
+            raise OSError(121, "Remote I/O error")
+
+
 class FakeSCMD(RegisterChip):
     """The SparkFun Serial Controlled Motor Driver (SCMD) firmware, as the
     Qwiic Motor Driver runs it: the user-port register map, at the values the
