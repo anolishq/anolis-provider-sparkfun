@@ -36,7 +36,10 @@ Per-repo conventions for coding agents.
 
 - `qwiic_i2c` picks its platform backend with `__import__` at import time. The PyInstaller spec collects every
   backend; mock mode never opens the real bus, so the harness does not cover that path. Check a frozen build with a
-  non-mock config: it must fail with `cannot open /dev/i2c-<n>`, not an import error.
+  non-mock config on a host where `/dev/i2c-<n>` exists and the user can open it: it must get past opening the bus
+  (devices listed, any absent board `UNREACHABLE`), not log an import error. On a host without the node the SDK's
+  start-up host check stops it first (`host requirements unmet: i2c_bus: /dev/i2c-<n> does not exist`) and the bus
+  open never runs, so that host proves nothing about the backend.
 - The provider opens the bus with `qwiic_i2c`'s `LinuxI2C(iBus=n)`. SparkFun's unreleased main branch ignores `iBus`;
   `test_the_real_bus_opens_the_configured_bus_number` fails if an upgrade brings that in.
 - SparkFun drivers write registers through `writeByte`, which smbus2 truncates to 8 bits without an error. Check a

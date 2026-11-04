@@ -7,7 +7,7 @@ license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
 dependencies = [
     # The Python provider SDK. Not on PyPI yet: pinned to a commit on its main branch.
-    "anolis-provider-sdk @ git+https://github.com/anolishq/anolis-provider-sdk-python@84cfe6c188d301766833c403765ba14d8d80b44b",
+    "anolis-provider-sdk @ git+https://github.com/anolishq/anolis-provider-sdk-python@921808e93e13aa78d170d06adda206525048c6d2",
     # SparkFun's drivers, and the bus library they and the provider share.
     "sparkfun-qwiic-ads1015>=2.0,<3",
     "sparkfun-qwiic-bme280>=2.0,<3",

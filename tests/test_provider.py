@@ -284,6 +284,8 @@ def test_when_the_bus_never_opens_every_device_is_unreachable(monkeypatch: pytes
         raise FileNotFoundError(2, "No such file or directory")
 
     monkeypatch.setattr("smbus2.SMBus", refuse)
+    # The host check passes (the device node is there) but the open fails.
+    monkeypatch.setattr(SparkFunProvider, "check_host", classmethod(lambda cls, config: []))
     session = Session(SparkFunProvider({"i2c_bus": 57, "devices": [{"id": "drive0", "type": "scmd"}]}))
     hello = envelope_pb2.Request(request_id=1)
     hello.hello.protocol_version = "v1"
@@ -299,6 +301,36 @@ def test_when_the_bus_never_opens_every_device_is_unreachable(monkeypatch: pytes
     assert isinstance(provider, SparkFunProvider)
     assert provider.health().state is HealthState.FAULT
     assert "/dev/i2c-57" in provider.health().message
+
+
+def test_a_missing_bus_node_leaves_the_provider_up_not_ready_and_without_devices(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The SDK runs check_host at startup: with /dev/i2c-<n> absent, start is not
+    # called, so the bus is never opened and no device is listed.
+    from anolis.deviceprovider.v1 import envelope_pb2, health_pb2
+    from anolis_provider_sdk.session import Session
+
+    opened: list[int] = []
+    monkeypatch.setattr("smbus2.SMBus", lambda bus: opened.append(bus))
+    monkeypatch.setattr("anolis_provider_sparkfun.provider.bus_device", lambda bus: str(tmp_path / f"i2c-{bus}"))
+    session = Session(SparkFunProvider(REAL))
+    hello = envelope_pb2.Request(request_id=1)
+    hello.hello.protocol_version = "v1"
+    session.handle(hello)
+    wait_ready = envelope_pb2.Request(request_id=2)
+    wait_ready.wait_ready.SetInParent()
+    diagnostics = session.handle(wait_ready).wait_ready.diagnostics
+    assert diagnostics["ready"] == "false"
+    assert diagnostics["host_check"] == "unmet"
+    assert "i2c-3 does not exist" in diagnostics["host_unmet"]
+    assert diagnostics["device_count"] == "0"
+    get_health = envelope_pb2.Request(request_id=3)
+    get_health.get_health.SetInParent()
+    health = session.handle(get_health).get_health
+    assert health.provider.state == health_pb2.ProviderHealth.STATE_FAULT
+    assert list(health.devices) == []
+    assert opened == []
 
 
 def test_settings_are_applied_again_in_the_order_they_were_last_set(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -31,6 +31,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   firmware, the ADS1015, the BME280, the SCD4x, the SHT4x and the SHTC3) that
   the board's driver runs against unchanged.
 
+### Changed
+
+- The Python provider SDK is pinned at 921808e. With it, the provider checks the
+  host at start-up as `--check-host` does: when `/dev/i2c-<n>` is missing or the
+  user cannot open it, the provider stays up but not ready and lists no devices,
+  instead of listing every device as `UNREACHABLE`. Configs are read more
+  strictly (a duplicated key, a NaN or infinity, or `2.0` where an integer is
+  expected is refused); the shipped configs pass unchanged.
+
 ### Fixed
 
 - A board is reported unreachable only for a failed I2C transfer or when the

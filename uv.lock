@@ -42,7 +42,7 @@ provides-extras = ["conformance"]
 [[package]]
 name = "anolis-provider-sdk"
 version = "0.1.0"
-source = { git = "https://github.com/anolishq/anolis-provider-sdk-python?rev=84cfe6c188d301766833c403765ba14d8d80b44b#84cfe6c188d301766833c403765ba14d8d80b44b" }
+source = { git = "https://github.com/anolishq/anolis-provider-sdk-python?rev=921808e93e13aa78d170d06adda206525048c6d2#921808e93e13aa78d170d06adda206525048c6d2" }
 dependencies = [
     { name = "anolis-protocol" },
     { name = "jsonschema" },
@@ -79,7 +79,7 @@ freeze = [
 [package.metadata]
 requires-dist = [
     { name = "anolis-protocol", extras = ["conformance"], marker = "extra == 'dev'", url = "https://github.com/anolishq/anolis-protocol/releases/download/v1.10.0/anolis_protocol-1.10.0-py3-none-any.whl" },
-    { name = "anolis-provider-sdk", git = "https://github.com/anolishq/anolis-provider-sdk-python?rev=84cfe6c188d301766833c403765ba14d8d80b44b" },
+    { name = "anolis-provider-sdk", git = "https://github.com/anolishq/anolis-provider-sdk-python?rev=921808e93e13aa78d170d06adda206525048c6d2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
     { name = "pyinstaller", marker = "extra == 'freeze'", specifier = ">=6.10,<7" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
