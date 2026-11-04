@@ -238,6 +238,13 @@ def test_addresses_are_the_firmwares_with_the_factory_default_first() -> None:
     assert set(qwiic_scmd.QwiicScmd.available_addresses) <= set(SCMD.addresses)
 
 
+def test_the_driver_lists_five_of_the_ten_addresses() -> None:
+    # https://github.com/sparkfun/qwiic_scmd_py/issues/4: when this fails, the
+    # driver lists them all and SCMD.addresses can come from it, as other boards' do.
+    missing = set(SCMD.addresses) - set(qwiic_scmd.QwiicScmd.available_addresses)
+    assert missing == {0x5B, 0x5E, 0x5F, 0x60, 0x61}
+
+
 def test_connect_waits_for_the_board_to_finish_starting() -> None:
     class Starting(FakeSCMD):
         polls = 0

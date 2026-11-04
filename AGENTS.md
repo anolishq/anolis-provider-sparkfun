@@ -16,10 +16,16 @@ Per-repo conventions for coding agents.
   register the driver does not wrap may be read or written through the driver's own bus and register constants (as
   `scmd.py` does for the drive read-back and the watchdog); anything more, such as a protocol or a calculation the
   driver lacks, is fixed upstream or written as a driver in its own package, not inside a board module.
-- **Drivers SparkFun lacks live in `src/anolis_qwiic_staging/`.** One module per chip, in SparkFun's driver
-  conventions, using only the `qwiic_i2c` bus interface and importing nothing from the provider
-  (`test_the_staging_package_imports_nothing_from_the_provider`). Each is staged to be offered to SparkFun once
-  proven on hardware, and deleted here when SparkFun publishes it.
+- **Vendor drivers follow the rules in the SDK guide's
+  [Vendor drivers](https://github.com/anolishq/anolis-provider-sdk-python/blob/main/docs/writing-a-provider.md#vendor-drivers)
+  section.** Here that means:
+  - Drivers SparkFun lacks live in `src/anolis_qwiic_staging/`: one module per chip, in SparkFun's driver conventions,
+    using only the `qwiic_i2c` bus interface and importing nothing from the provider
+    (`test_the_staging_package_imports_nothing_from_the_provider`). #22 tracks offering the current ones to SparkFun.
+  - A workaround for a SparkFun driver bug links the upstream issue in a comment, and a test that calls the driver
+    directly pins the bug and links the same issue (`test_the_driver_*` in `tests/`).
+  - Filing an upstream issue or pull request is public and made under the maintainer's account. An agent drafts it,
+    with a reproduction that uses only SparkFun's driver, and files it only with explicit approval, one at a time.
 - **Mock mode runs the real driver.** The fake bus emulates the chip's registers; never stub the driver itself.
 - **Only a failed I2C transfer or `NotAnswering` means a board is unreachable.** A transfer error is an `OSError`
   whose errno is in `_BUS_ERRNOS` (`provider.py`); `NotAnswering` (`devices/base.py`) is what a board module raises

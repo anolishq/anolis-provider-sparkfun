@@ -48,6 +48,7 @@ def test_the_driver_enables_and_drives_through_the_model() -> None:
 def test_the_driver_full_forward_goes_out_as_full_reverse() -> None:
     # sparkfun-qwiic-scmd 2.0.0: set_drive(m, 1, 255) computes 0x80 + 128 = 0x100,
     # and smbus2 sends the low byte. The provider never asks for this level.
+    # https://github.com/sparkfun/qwiic_scmd_py/issues/3
     chip, _, driver = board()
     driver.set_drive(0, 1, 255)
     assert chip.registers[FakeSCMD.MA_DRIVE] == 0x00
