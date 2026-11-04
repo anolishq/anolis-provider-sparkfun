@@ -159,7 +159,7 @@ just test     # unit tests, and the conformance harness in mock mode
 just freeze   # the single-file release binary, in dist/
 ```
 
-Adding a board: [docs/adding-a-board.md](docs/adding-a-board.md).
+Adding a board: [docs/adding-a-board.md](docs/adding-a-board.md). Candidate boards: [docs/coverage.md](docs/coverage.md).
 
 ## License
 
