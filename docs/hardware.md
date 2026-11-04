@@ -152,6 +152,7 @@ python3 scripts/cold_start.py /opt/anolis/bin/anolis-provider-sparkfun \
 
 It prints the median and slowest time to the Hello reply and to the WaitReady
 reply, and exits 1 if the slowest Hello is over `--hello-budget-ms`. If a
-reply is not OK, or the provider reports it did not start (a bus that will not
-open, say), it prints why and exits 1 without a figure. Set the
+reply is not OK, or the provider reports it is not ready (a missing
+`/dev/i2c-<n>`, or a bus that will not open), it says so and exits 1 without a
+figure; the provider's own log, on the same stderr, gives the reason. Set the
 runtime's `hello_timeout_ms` with room above the slowest figure.
