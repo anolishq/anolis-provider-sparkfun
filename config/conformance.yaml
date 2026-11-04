@@ -1,0 +1,11 @@
+# Mock-mode config for the conformance harness and CI: two motor drivers, one
+# with the watchdog off, on a simulated bus. No hardware needed.
+mock: true
+devices:
+  - id: drive0
+    type: scmd
+    label: Motor driver 0
+  - id: drive1
+    type: scmd
+    address: 0x58
+    failsafe_ms: 0

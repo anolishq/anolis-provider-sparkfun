@@ -1,0 +1,5 @@
+# Conformance manifest, read by anolis-protocol's anolis-adpp-conformance
+# (--provider-profile). No waivers.
+provider_name = "anolis-provider-sparkfun"
+has_mock_devices = true
+conformance_level = 2
