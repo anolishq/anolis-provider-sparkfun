@@ -7,7 +7,8 @@ chips, and staged to go to SparkFun once proven on hardware. The device types
 are the ones the Adafruit provider declares for the same chips.
 
 A board is refused unless its id check passes (the SHT4x serial number with
-intact CRCs, the SHTC3 id register). A reading that fails its CRC is reported
+intact CRCs, the SHTC3 id register); a board that does not answer at all is
+reported as the bus error. A reading that fails its CRC is reported
 as a failed transfer, so the provider retries the board rather than passing
 on a bad value.
 """
@@ -24,7 +25,7 @@ from anolis_qwiic_staging.qwiic_sht4x import QwiicSHT4x
 from anolis_qwiic_staging.qwiic_shtc3 import QwiicSHTC3
 
 from ..mock import FakeSHT4x, FakeSHTC3
-from .base import DeviceDriver
+from .base import DeviceDriver, NotAnswering
 
 SIGNALS = (
     Signal("temperature", ValueType.DOUBLE, unit="C", description="Air temperature"),
@@ -40,7 +41,7 @@ class _SensirionHumidity(DeviceDriver):
         self._address = address
         self._sensor = self._open(i2c, address)
         if not self._sensor.begin():
-            raise ValueError(f"no {self._name} at {address:#04x}: it did not pass its id check")
+            raise NotAnswering(f"no {self._name} at {address:#04x}: it did not pass its id check")
 
     def _open(self, i2c: Any, address: int) -> Any:
         raise NotImplementedError
@@ -62,7 +63,12 @@ class SHT4x(_SensirionHumidity):
     _name = "SHT4x"
 
     def _open(self, i2c: Any, address: int) -> Any:
-        return QwiicSHT4x(address, i2c_driver=i2c)
+        sensor = QwiicSHT4x(address, i2c_driver=i2c)
+        # begin() returns False both when nothing answers and when the id
+        # check fails; nothing answering is a bus error, as on the SHTC3.
+        if not sensor.is_connected():
+            raise OSError(errno.ENXIO, f"nothing acknowledges {address:#04x}")
+        return sensor
 
     @staticmethod
     def fake() -> FakeSHT4x:

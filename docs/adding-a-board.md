@@ -17,6 +17,19 @@ A board is one module in `src/anolis_provider_sparkfun/devices/`, registered in
   `type`, `address` and `label`, as JSON Schema with a default.
 - **`fake()`**: a register model of the chip for mock mode, in `mock.py`.
 
+## When the board does not answer
+
+The provider reports a board UNREACHABLE, and tries it again on the next read
+or call, for exactly two exceptions: an `OSError` from a failed I2C transfer
+(an errno in `_BUS_ERRNOS` in `provider.py`), and `NotAnswering` from
+`devices/base.py`. Raise `NotAnswering`, with a message saying what was found,
+when the board at the address is absent, is a different chip, or has not
+finished starting, whether at connect or when the board sets the chip up again
+during a read or call. Where the driver signals one of those by raising, catch
+that exception narrowly and raise `NotAnswering` from it. Every other
+exception, a `ValueError` or `RuntimeError` included, is a fault in the
+provider and is reported as one.
+
 ## The fake chip
 
 Mock mode runs SparkFun's real driver against `FakeQwiicBus`, so the fake has to

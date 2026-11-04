@@ -29,7 +29,7 @@ import qwiic_ads1015
 from anolis_provider_sdk import DeviceType, Signal, ValueType
 
 from ..mock import FakeADS1015
-from .base import DeviceDriver
+from .base import DeviceDriver, NotAnswering
 
 ADS = qwiic_ads1015.QwiicADS1015
 CHANNELS = 4
@@ -83,7 +83,7 @@ class ADS1015(DeviceDriver):
         self._address = address
         self._driver = ADS(address, i2c_driver=i2c)
         if not self._driver.begin():
-            raise ValueError(f"no ADS1015 at {address:#04x}")
+            raise NotAnswering(f"no ADS1015 at {address:#04x}")
         self._check_identity()
         self._driver.set_gain(GAINS[float(options.get("full_scale_v", FULL_SCALE_DEFAULT_V))])
         # Single-shot, waiting on the chip's conversion-ready flag.
@@ -94,7 +94,7 @@ class ADS1015(DeviceDriver):
         back = self._bus.readBlock(self._address, ADS.kPointerConfig, 2)
         found = (back[0] << 8) | back[1]
         if found != PROBE | ADS.kConfigOsReady:
-            raise ValueError(f"no ADS1015 at {self._address:#04x}: its config register reads {found:#06x}")
+            raise NotAnswering(f"no ADS1015 at {self._address:#04x}: its config register reads {found:#06x}")
 
     @staticmethod
     def fake() -> FakeADS1015:

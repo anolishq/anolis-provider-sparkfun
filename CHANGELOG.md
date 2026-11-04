@@ -30,4 +30,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Mock mode: a simulated bus with a register model of each board (the SCMD firmware, the ADS1015, the BME280, the SCD4x) that
   SparkFun's driver runs against unchanged.
 
+### Fixed
+
+- A board is reported unreachable only for a failed I2C transfer or when the
+  board module finds no board, another chip, or a board still starting
+  (`NotAnswering`). Such a failure during a read or call now marks the board
+  lost and reports it `UNREACHABLE` rather than `INTERNAL`, and any other
+  exception from a board, a `RuntimeError` included, is a provider fault.
+- When the I2C bus does not open, every device reports `UNREACHABLE` with the
+  bus error, and the provider's own health is `FAULT`, instead of `OK`.
+- An SHT4x that does not answer at all is reported with the bus error, not as
+  a chip that failed its id check.
+
 [Unreleased]: https://github.com/anolishq/anolis-provider-sparkfun/commits/main

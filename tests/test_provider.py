@@ -252,3 +252,41 @@ def test_a_board_refuses_another_boards_options(monkeypatch: pytest.MonkeyPatch)
     jsonschema.validate({"id": "s", "type": "scmd", "failsafe_ms": 100}, schema)
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate({"id": "s", "type": "sensor", "failsafe_ms": 100}, schema)
+
+
+def test_a_runtime_error_from_a_board_fails_start_instead_of_hiding_as_unreachable() -> None:
+    # Only a failed transfer or a board's NotAnswering means the board is not answering.
+    p = SparkFunProvider(mock())
+
+    def broken(self: Any, i2c: Any, address: int, options: Any) -> None:
+        raise RuntimeError("a platform library is missing")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(SCMD, "__init__", broken)
+        with pytest.raises(RuntimeError, match="platform library"):
+            p.start(0.0)
+
+
+def test_when_the_bus_never_opens_every_device_is_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from anolis.deviceprovider.v1 import envelope_pb2, health_pb2
+    from anolis_provider_sdk.session import Session
+
+    def refuse(bus: int) -> None:
+        raise FileNotFoundError(2, "No such file or directory")
+
+    monkeypatch.setattr("smbus2.SMBus", refuse)
+    session = Session(SparkFunProvider({"i2c_bus": 57, "devices": [{"id": "drive0", "type": "scmd"}]}))
+    hello = envelope_pb2.Request(request_id=1)
+    hello.hello.protocol_version = "v1"
+    session.handle(hello)
+    get_health = envelope_pb2.Request(request_id=2)
+    get_health.get_health.SetInParent()
+    health = session.handle(get_health).get_health
+    assert health.provider.state != health_pb2.ProviderHealth.STATE_OK
+    [device] = health.devices
+    assert device.state == health_pb2.DeviceHealth.STATE_UNREACHABLE
+    assert "/dev/i2c-57" in device.message
+    provider = session.provider
+    assert isinstance(provider, SparkFunProvider)
+    assert provider.health().state is HealthState.FAULT
+    assert "/dev/i2c-57" in provider.health().message

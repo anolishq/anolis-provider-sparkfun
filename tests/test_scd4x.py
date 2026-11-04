@@ -13,6 +13,7 @@ import qwiic_scd4x
 from anolis_provider_sdk import Quality, Reading
 
 from anolis_provider_sparkfun.devices import scd4x as board
+from anolis_provider_sparkfun.devices.base import NotAnswering
 from anolis_provider_sparkfun.devices.scd4x import SCD4x
 from anolis_provider_sparkfun.mock import FakeQwiicBus, FakeSCD4x
 
@@ -102,7 +103,7 @@ class Garbled(FakeSCD4x):
 
 
 def test_a_chip_whose_serial_fails_its_crc_is_refused(clock: Clock) -> None:
-    with pytest.raises(ValueError, match="serial number"):
+    with pytest.raises(NotAnswering, match="serial number"):
         connected(clock, Garbled(clock))
 
 

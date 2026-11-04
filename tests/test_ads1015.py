@@ -7,6 +7,7 @@ import pytest
 import qwiic_ads1015
 
 from anolis_provider_sparkfun.devices.ads1015 import ADS1015, signed12
+from anolis_provider_sparkfun.devices.base import NotAnswering
 from anolis_provider_sparkfun.mock import FakeADS1015, FakeQwiicBus, RegisterChip
 from anolis_provider_sparkfun.provider import SparkFunProvider
 
@@ -93,7 +94,7 @@ class TMP102Like(RegisterChip):
 
 
 def test_a_chip_that_does_not_hold_the_config_is_refused() -> None:
-    with pytest.raises(ValueError, match="config register reads"):
+    with pytest.raises(NotAnswering, match="config register reads"):
         ADS1015(FakeQwiicBus({ADDRESS: TMP102Like()}), ADDRESS, {})
 
 

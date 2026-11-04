@@ -21,8 +21,12 @@ Per-repo conventions for coding agents.
   (`test_the_staging_package_imports_nothing_from_the_provider`). Each is staged to be offered to SparkFun once
   proven on hardware, and deleted here when SparkFun publishes it.
 - **Mock mode runs the real driver.** The fake bus emulates the chip's registers; never stub the driver itself.
-- **Only I2C transfer errors mean a board is unreachable** (`_BUS_ERRNOS` in `provider.py`). Any other exception is a
-  provider fault and must surface as one.
+- **Only a failed I2C transfer or `NotAnswering` means a board is unreachable.** A transfer error is an `OSError`
+  whose errno is in `_BUS_ERRNOS` (`provider.py`); `NotAnswering` (`devices/base.py`) is what a board module raises
+  when the board at the address is absent, is a different chip, or has not finished starting, wrapping only the
+  driver exceptions that mean that. The provider treats those two alike in `_connect`, `read()` and `call()`: the
+  board is marked lost, reported UNREACHABLE and retried. Any other exception is a provider fault and must surface
+  as one.
 - **Outputs: safe at connect, zero-rung drivable, read back from the chip.** See `docs/adding-a-board.md`, "Boards with
   outputs".
 - **Only what the config names.** The provider opens one I2C bus and the configured addresses. It does not scan, and
