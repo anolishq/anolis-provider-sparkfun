@@ -15,6 +15,7 @@ already maintains.
 
 | `type` | Board | Driver | Addresses |
 | --- | --- | --- | --- |
+| `ads1015` | Qwiic 12 Bit ADC - 4 Channel (DEV-15334): four analog inputs, in volts | `sparkfun-qwiic-ads1015` | `0x48` (default), `0x49` to `0x4B` |
 | `bme280` | Qwiic Atmospheric Sensor (SEN-15440), and the BME280 on SparkFun's Environmental Combo: temperature, humidity, pressure | `sparkfun-qwiic-bme280` | `0x77` (default), `0x76` |
 | `scd4x` | Qwiic CO2 Humidity and Temperature Sensor, SCD40 or SCD41 (SCD41: SEN-22396): CO2, temperature, humidity | `sparkfun-qwiic-scd4x` | `0x62` |
 | `scmd` | Qwiic Motor Driver (ROB-15451), and the Serial Controlled Motor Driver (ROB-13911) strapped for I2C: two DC motors | `sparkfun-qwiic-scmd` | `0x5D` (default), `0x58` to `0x61` |
@@ -37,6 +38,9 @@ devices:
   - id: air0
     type: scd4x
     label: Enclosure CO2
+  - id: adc0
+    type: ads1015
+    full_scale_v: 4.096
 ```
 
 `mock: true` replaces the bus with a simulated one holding a register model of
@@ -46,6 +50,15 @@ schema: `anolis-provider-sparkfun --config-schema`.
 A board that does not answer is listed anyway and reported `UNREACHABLE`; reads
 and calls fail with `UNAVAILABLE` and retry the board each time, so reseating a
 cable recovers it without a restart.
+
+## The ADS1015
+
+`ads1015` reads `ain0` to `ain3` in volts, each against ground, with
+`full_scale_v` (6.144, 4.096, 2.048, 1.024, 0.512 or 0.256; default 4.096)
+setting the range: a reading beyond it clips at it. The range does not change
+what the inputs can take, which is ground minus 0.3 V to the supply plus 0.3 V.
+Each read converts each requested input in turn, about 2 ms an input; a
+slightly negative input reads negative.
 
 ## The BME280
 

@@ -150,6 +150,98 @@ class FakeBME280(RegisterChip):
         return super().read(length)
 
 
+class FakeADS1015:
+    """A TI ADS1015 12-bit ADC (datasheet SBAS473): 16-bit registers behind a
+    pointer, the config register at its power-on value 0x8583 (single-shot,
+    powered down, +/-2.048 V, 1600 samples per second), and an input voltage
+    per pin in ``volts``.
+
+    Modelled because a driver or the provider can get each of them wrong:
+
+    - Single-shot: writing the config with OS set starts one conversion, which
+      takes one sample period; OS reads 0 until it is done.
+    - Continuous: a conversion runs every sample period with the mux as it was
+      when that conversion started, so straight after a mux change the
+      conversion register still holds a result from the old input.
+    - Results are 12-bit two's complement, left-justified, clipped at the
+      range: an input below ground reads negative.
+
+    ``clock`` is in seconds; tests pass their own to step time.
+    """
+
+    CONVERSION, CONFIG = 0x00, 0x01
+    RESET_CONFIG = 0x8583
+    RATES = (128, 250, 490, 920, 1600, 2400, 3300, 3300)
+    RANGES = (6.144, 4.096, 2.048, 1.024, 0.512, 0.256, 0.256, 0.256)
+    # MUX[2:0] -> (positive input, negative input or None for ground)
+    MUX = ((0, 1), (0, 3), (1, 3), (2, 3), (0, None), (1, None), (2, None), (3, None))
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self.clock = clock
+        self.volts = [0.0, 0.0, 0.0, 0.0]
+        self.registers = {self.CONVERSION: 0x0000, self.CONFIG: self.RESET_CONFIG, 0x02: 0x8000, 0x03: 0x7FFF}
+        self._pointer = 0
+        self._done_at = 0.0  # single-shot: when the running conversion finishes
+        self._pending_config = self.RESET_CONFIG
+        self._cycle_start = 0.0  # continuous: when the current cycle began
+
+    def _period(self, config: int) -> float:
+        return 1.0 / self.RATES[(config >> 5) & 0b111]
+
+    def _code(self, config: int) -> int:
+        pos, neg = self.MUX[(config >> 12) & 0b111]
+        v = self.volts[pos] - (self.volts[neg] if neg is not None else 0.0)
+        fs = self.RANGES[(config >> 9) & 0b111]
+        code = max(-2048, min(2047, round(v / fs * 2048)))
+        return (code & 0xFFF) << 4
+
+    def _update(self) -> None:
+        now = self.clock()
+        config = self.registers[self.CONFIG]
+        if config & 0x0100:  # single-shot
+            if not config & 0x8000 and now >= self._done_at:
+                self.registers[self.CONVERSION] = self._code(self._pending_config)
+                self.registers[self.CONFIG] = config | 0x8000
+        else:
+            period = self._period(config)
+            if now - self._cycle_start >= period:
+                # A cycle completed since the mux was last set: its result
+                # replaces whatever the register held from the old input.
+                self.registers[self.CONVERSION] = self._code(config)
+                self._cycle_start += period * int((now - self._cycle_start) // period)
+
+    def write(self, data: bytes) -> None:
+        self._update()
+        if not data:
+            return
+        self._pointer = data[0] & 0b11
+        if len(data) == 3 and self._pointer != self.CONVERSION:
+            value = int.from_bytes(data[1:3], "big")
+            if self._pointer != self.CONFIG:
+                self.registers[self._pointer] = value
+                return
+            if value & 0x0100:  # single-shot
+                if value & 0x8000:  # start a conversion
+                    self._pending_config = value
+                    self._done_at = self.clock() + self._period(value)
+                    value &= ~0x8000
+                else:
+                    value |= 0x8000  # powered down: OS reads 1
+            else:
+                self._cycle_start = self.clock()
+            self.registers[self.CONFIG] = value & 0xFFFF
+
+    def select(self, register: int) -> None:
+        self._update()
+        self._pointer = register & 0b11
+
+    def read(self, length: int) -> bytes:
+        self._update()
+        if length != 2:
+            raise NotImplementedError("the ADS1015 returns one 16-bit register per read")
+        return self.registers[self._pointer].to_bytes(2, "big")
+
+
 def sensirion_crc(data: bytes) -> int:
     """CRC-8 over a 16-bit word, as Sensirion sensors send and check it:
     polynomial 0x31, initial value 0xFF."""

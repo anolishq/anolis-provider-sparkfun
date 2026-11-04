@@ -9,6 +9,7 @@ dependencies = [
     # The Python provider SDK. Not on PyPI yet: pinned to a commit on its main branch.
     "anolis-provider-sdk @ git+https://github.com/anolishq/anolis-provider-sdk-python@84cfe6c188d301766833c403765ba14d8d80b44b",
     # SparkFun's drivers, and the bus library they and the provider share.
+    "sparkfun-qwiic-ads1015>=2.0,<3",
     "sparkfun-qwiic-bme280>=2.0,<3",
     "sparkfun-qwiic-scd4x>=2.0,<3",
     "sparkfun-qwiic-scmd>=2.0,<3",
@@ -56,7 +57,7 @@ files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
 # Generated protobuf modules and the SparkFun drivers ship without type stubs.
-module = ["anolis.*", "qwiic_bme280", "qwiic_scd4x", "qwiic_scmd", "qwiic_i2c.*"]
+module = ["anolis.*", "qwiic_ads1015", "qwiic_bme280", "qwiic_scd4x", "qwiic_scmd", "qwiic_i2c.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

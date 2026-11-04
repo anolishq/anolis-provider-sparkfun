@@ -59,6 +59,21 @@ runtime (`sudo systemctl stop anolis-runtime`, or kill it). The motor should
 stop within about two seconds with nothing else done. After the runtime is back,
 `failsafe_trips` reads 1 or more.
 
+## The ADS1015
+
+The Qwiic 12 Bit ADC carries a TI ADS1015: four analog inputs, A0 to A3.
+
+- **Address:** `0x48` from the factory; the address jumper selects `0x49` to
+  `0x4B`, four on one bus.
+- **Input limits:** each input must stay between ground minus 0.3 V and the
+  board's supply plus 0.3 V, which on Qwiic is 3.3 V. `full_scale_v` only sets
+  the measuring range; a 5 V signal needs a divider whatever it says.
+- **Check it:** `i2cdetect -y 1` shows `48`. Tie A0 to the 3.3 V pin and A1 to
+  ground; `ain0` reads about 3.3 and `ain1` about 0.
+- **Shared address:** a TMP102 temperature sensor also uses `0x48`; give one of
+  them another address. The provider refuses a chip at the address that does
+  not behave as an ADS1015.
+
 ## The BME280
 
 The Qwiic Atmospheric Sensor carries a Bosch BME280: temperature, humidity and
