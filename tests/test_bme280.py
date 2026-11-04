@@ -164,6 +164,32 @@ def test_a_chip_whose_set_up_fails_during_a_read_is_unreachable() -> None:
     assert read(p, "temperature")["temperature"] == pytest.approx(25.08, abs=0.005)
 
 
+def test_a_chip_whose_set_up_fails_during_a_call_is_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    # soft_reset sets the chip up again in place; a chip that does not finish
+    # starting is lost and retried, as during a read.
+    class StuckAfterReset(FakeBME280):
+        stuck = False
+
+        def power_cycle(self) -> None:
+            super().power_cycle()
+            if self.stuck:
+                self.registers[self.STATUS] = IM_UPDATE  # stuck copying its calibration
+
+    chip = StuckAfterReset()
+    p, _ = started(chip)
+    monkeypatch.setattr("anolis_provider_sparkfun.devices.bme280.STARTUP_TIMEOUT_S", 0.01)
+    chip.stuck = True
+    with pytest.raises(ProviderError) as err:
+        call(p, "soft_reset")
+    assert err.value.code is StatusCode.UNAVAILABLE
+    health = p.device_health(p.devices()[0])
+    assert health and health.state is DeviceState.UNREACHABLE
+    assert "starting up" in health.message
+    chip.stuck = False
+    chip.registers[FakeBME280.STATUS] = 0
+    assert read(p, "temperature")["temperature"] == pytest.approx(25.08, abs=0.005)
+
+
 def test_the_sea_level_pressure_survives_a_reconnect() -> None:
     p, chip = started()
     call(p, "set_sea_level_pressure", sea_level_pressure=950.0)
