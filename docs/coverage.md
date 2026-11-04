@@ -195,7 +195,7 @@ SparkFun once proven on hardware; both are supported (`sht4x`, `shtc3`).
 Ranked by value per effort for a lab-automation runtime.
 
 Done: **SCMD** (it has a hardware command watchdog: with `FSAFE_TIME` set, a
-stopped provider stops the motors, which the Adafruit Motor HAT cannot do),
+killed or hung provider stops the motors, which the Adafruit Motor HAT cannot do),
 **ADS1015**, **BME280**, **SCD4x**, and the **SHT4x** and **SHTC3** on this
 repo's staged drivers.
 

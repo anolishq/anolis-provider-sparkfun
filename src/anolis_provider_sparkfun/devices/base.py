@@ -52,3 +52,9 @@ class DeviceDriver:
 
     def call(self, function: Function, args: Mapping[str, Any]) -> Mapping[str, Any] | None:
         raise NotImplementedError
+
+    def stop(self) -> None:
+        """Put the board's outputs in their safe state, when the provider is
+        exiting. A board with no outputs needs nothing: the default does
+        nothing. Let a bus error through; the provider logs it and goes on to
+        the next board."""

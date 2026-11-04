@@ -9,16 +9,17 @@ FSAFE_TIME, the board's watchdog.
 
 Safe state: throttle 0 (drive register 0x80). The board drives both channels
 there when it connects, at start-up and when it answers again after being lost,
-and again whenever it is found to have restarted on its own. Every motor
+again whenever it is found to have restarted on its own, and when the provider
+exits (``stop``), however the session ends. Every motor
 function has one required numeric argument, so the runtime's zero rung
 (`safety.safe_state.zero_is_safe`) drives each one to 0.
 
 The board has a command watchdog. With `failsafe_ms` set, a gap that long with
 no completed I2C write sets both channels to 0x80 in the board's firmware,
 whatever the provider or the host is doing. Every read and every call writes
-to the board, which feeds it, so the runtime's polling keeps it fed: if the
-runtime or the provider stops, or the cable comes out, the motors stop within
-`failsafe_ms`.
+to the board, which feeds it, so the runtime's polling keeps it fed. It covers
+what ``stop`` cannot: if the runtime hangs, the provider is killed or hangs, or
+the cable comes out, the motors stop within `failsafe_ms`.
 
 Expansion-port slave boards (motors beyond A and B) are not supported.
 """
@@ -191,3 +192,12 @@ class SCMD(DeviceDriver):
         motor = MOTORS[function.name.removeprefix("set_motor_").removesuffix("_throttle")]
         self._driver.set_drive(motor, *drive_args(register_from_throttle(args["throttle"])))
         return None
+
+    def stop(self) -> None:
+        """Both channels to throttle 0, for when the provider exits. The outputs
+        stay enabled and the watchdog keeps its configured period: the state
+        connect leaves the board in. 0x80 already stops both channels, and
+        nothing in the driver or its documentation says a disabled board is
+        safer than an enabled one at 0x80."""
+        for motor in MOTORS.values():
+            self._driver.set_drive(motor, *drive_args(STOP))

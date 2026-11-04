@@ -62,6 +62,9 @@ from the runtime's safety contract:
 - **Drive the safe state when the board connects.** The constructor runs at
   start-up and again when a lost board answers, and leaves every output safe.
   Name the safe state in the module docstring.
+- **Drive it again when the provider exits.** Override `stop()`: the provider
+  calls it on every connected board when the session ends, however it ends,
+  logs and skips a board that does not answer, and goes on to the next.
 - **Give every `ACTUATE` function a required numeric argument for which 0 is
   safe and in range.** The runtime's zero rung (`safety.safe_state.zero_is_safe`)
   calls each actuating function with its required numeric arguments set to 0,
@@ -78,8 +81,9 @@ from the runtime's safety contract:
   the hardware does.
 
 Say in the module whether the board has a command watchdog, and use it when it
-has one, as `scmd` does. Without one, the outputs hold their last value if the
-provider stops.
+has one, as `scmd` does. `stop()` runs only when the provider exits in order;
+without a watchdog, the outputs hold their last value if the provider is killed
+or hangs.
 
 ## Before opening a PR
 

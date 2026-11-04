@@ -32,7 +32,10 @@ like any other board.
 - **Check it:** `i2cdetect -y 1` shows `5d`.
 
 The provider stops both channels and arms the board's watchdog when it
-connects. Before the first run, check that each motor can turn freely and that
+connects, and stops both channels again when it exits, leaving the outputs
+enabled and the watchdog armed. A provider that is killed or hangs cannot do
+that; the watchdog then stops the motors within `failsafe_ms`. Before the first
+run, check that each motor can turn freely and that
 nothing is attached that would move when it spins.
 
 ### Bench check of the software stop and the watchdog
@@ -54,10 +57,16 @@ curl -s -H "$H" -X POST http://127.0.0.1:8080/v0/estop/clear
 The motor should spin at the call, stop at the stop, and read back 0. Function
 ids follow the channels: `set_motor_a_throttle` is 1, `set_motor_b_throttle` 2.
 
-Then the watchdog: start the motor again with the same call, and stop the
-runtime (`sudo systemctl stop anolis-runtime`, or kill it). The motor should
-stop within about two seconds with nothing else done. After the runtime is back,
-`failsafe_trips` reads 1 or more.
+Then the stop at exit: start the motor again with the same call, and stop the
+runtime (`sudo systemctl stop anolis-runtime`). The provider sees its input
+close and stops the motor at once, before the watchdog would.
+
+Then the watchdog, which covers a provider that cannot stop the motor itself:
+with the runtime back and the motor started again, freeze the provider so it
+neither writes nor exits (`sudo pkill -STOP -f anolis-provider-sparkfun`). The
+motor should stop within about two seconds with nothing else done. Resume it
+(`sudo pkill -CONT -f anolis-provider-sparkfun`); `failsafe_trips` then reads 1
+or more.
 
 ## The ADS1015
 

@@ -111,6 +111,12 @@ again after being lost, and when the provider finds it has restarted on its own
 (a brown-out on its supply). So a supervised restart of the provider stops the
 motors, whatever `safety.on_startup` says.
 
+It stops both channels again when the provider exits, however the session
+ends: the runtime shuts down or restarts it, crashes or closes the pipe, or
+sends `SIGTERM`. The outputs stay enabled at throttle 0 and the watchdog stays
+armed. A board that does not answer then is logged and skipped, and the others
+are still stopped.
+
 Throttle 0 is the safe state, so the runtime's zero rung drives it:
 
 ```yaml
@@ -125,9 +131,12 @@ Unlike most motor boards, this one has a **command watchdog** in its firmware.
 With `failsafe_ms` set (default 2000, 10 to 2550 in steps of 10, 0 for off), the
 board stops both motors itself after that long with no I2C write. Every read
 writes to the board, so the runtime's polling (`polling.interval_ms`, 500 by
-default) keeps it fed. If the runtime hangs or stops, the provider dies or the
-cable comes out, the motors stop within `failsafe_ms`. Keep it well above the
-polling interval: each trip is counted in the `failsafe_trips` signal.
+default) keeps it fed. It covers what the stop at exit cannot: if the runtime
+hangs, the provider is killed (`SIGKILL`) or hangs, or the cable comes out, the
+motors stop within `failsafe_ms`. Keep it well above the polling interval: each
+trip is counted in the `failsafe_trips` signal. After the provider exits the
+board is no longer written to, so the watchdog trips once its period has passed
+with the motors already stopped, and `failsafe_trips` counts that too.
 
 It is still a software stop, not an emergency stop: cut the motor supply for
 that. See the runtime's
