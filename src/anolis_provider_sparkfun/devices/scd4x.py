@@ -8,7 +8,8 @@ The sensor measures every 5 seconds on its own clock and a measurement can be
 read out once, so a read returns the latest measurement with the time it was
 fetched, and the same values again until the next one. Until the first one
 arrives, about 5 seconds after start-up, every signal reads NaN with
-QUALITY_UNKNOWN. A measurement older than three periods reads STALE.
+QUALITY_UNKNOWN. A measurement older than two periods and a margin (12 s)
+reads STALE, which shows a stuck sensor before the board restarts it.
 
 Two things the driver does not do, done here:
 
@@ -17,8 +18,8 @@ Two things the driver does not do, done here:
   reported unreachable.
 - A sensor that restarted on its own (a brown-out) comes back idle and stops
   measuring, with nothing to show for it but a missing data-ready flag. When
-  no measurement has arrived for three periods, the board starts the sensor
-  again.
+  no measurement has arrived for four periods (20 s), the board starts the
+  sensor again.
 """
 
 from __future__ import annotations
@@ -38,7 +39,10 @@ from .base import DeviceDriver, NotAnswering
 log = logging.getLogger(__name__)
 
 PERIOD_S = 5.0
-RESTART_AFTER_S = 3 * PERIOD_S
+# A measurement goes STALE before the board gives up on the sensor and restarts
+# it, which clears the measurement: STALE is what a stuck sensor looks like.
+STALE_AFTER_S = 2 * PERIOD_S + 2.0
+RESTART_AFTER_S = 4 * PERIOD_S
 
 TYPE = DeviceType(
     id="scd4x",
@@ -49,7 +53,7 @@ TYPE = DeviceType(
             unit="ppm",
             description="CO2 concentration, measured every 5 s",
             poll_hint_hz=0.2,
-            stale_after_ms=int(RESTART_AFTER_S * 1000),
+            stale_after_ms=int(STALE_AFTER_S * 1000),
         ),
         Signal(
             "temperature",
@@ -57,7 +61,7 @@ TYPE = DeviceType(
             unit="C",
             description="Temperature at the sensor, measured every 5 s",
             poll_hint_hz=0.2,
-            stale_after_ms=int(RESTART_AFTER_S * 1000),
+            stale_after_ms=int(STALE_AFTER_S * 1000),
         ),
         Signal(
             "relative_humidity",
@@ -65,7 +69,7 @@ TYPE = DeviceType(
             unit="%",
             description="Relative humidity at the sensor, measured every 5 s",
             poll_hint_hz=0.2,
-            stale_after_ms=int(RESTART_AFTER_S * 1000),
+            stale_after_ms=int(STALE_AFTER_S * 1000),
         ),
     ),
     functions=(

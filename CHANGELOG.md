@@ -45,5 +45,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   SCD4x's ambient pressure) are applied again when a lost board is
   reconnected, in the order they were last set, instead of silently going
   back to their defaults.
+- An SCD4x measurement now reads `STALE` after 12 s, before the board restarts
+  a sensor that stopped measuring (after 20 s); before, the restart came at the
+  same 15 s as the stale threshold, so a stuck sensor went from `OK` straight
+  to NaN without ever reading `STALE`.
 
 [Unreleased]: https://github.com/anolishq/anolis-provider-sparkfun/commits/main

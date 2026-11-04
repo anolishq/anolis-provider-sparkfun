@@ -74,7 +74,7 @@ binary would change the binary's licence terms; keep it out.
 
 | Chip / family | PyPI driver | Example boards (SKU) | I2C address | Notes for Anolis |
 | --- | --- | --- | --- | --- |
-| SCD4x NDIR CO2 | `sparkfun_qwiic_scd4x` | CO2 Humidity and Temperature Sensor - SCD41 (SEN-22396) | 0x62 | **Supported** (`scd4x`): measures every 5 s; NaN with QUALITY_UNKNOWN before the first measurement, STALE after 15 s. The driver's `begin()` returns True whatever it found; the provider checks the serial read and restarts a sensor that stopped measuring. |
+| SCD4x NDIR CO2 | `sparkfun_qwiic_scd4x` | CO2 Humidity and Temperature Sensor - SCD41 (SEN-22396) | 0x62 | **Supported** (`scd4x`): measures every 5 s; NaN with QUALITY_UNKNOWN before the first measurement, STALE after 12 s, and restarted after 20 s with no measurement. The driver's `begin()` returns True whatever it found; the provider checks the serial read and restarts a sensor that stopped measuring. |
 | SGP40 VOC | `sparkfun_qwiic_sgp40` | Air Quality Sensor - SGP40 (SEN-18345) | 0x59 | Ships its own VOC index algorithm module. |
 | ENS160 MOX | `sparkfun_qwiic_ens160` | Indoor Air Quality Sensor - ENS160 (SEN-20844); Environmental Combo (SEN-22858) | 0x53, 0x52 | |
 | CCS811 | `sparkfun_qwiic_ccs811` (Linux only) | **unconfirmed**: the README's product link (14348) now redirects to the ENS160/BME280 combo | 0x5B, 0x5A | Probably retired; low priority. |

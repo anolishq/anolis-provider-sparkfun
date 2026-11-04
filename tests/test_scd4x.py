@@ -128,7 +128,7 @@ def test_a_sensor_that_restarted_on_its_own_is_started_again(clock: Clock) -> No
     assert s.read(["co2"])["co2"].quality is Quality.OK
     chip.power_cycle()  # idle: no more measurements
     chip.set_measurement(co2=750, temperature=22.5, humidity=40.0)
-    for _ in range(4):  # 20 s at one read every 5 s
+    for _ in range(5):  # 25 s at one read every 5 s
         clock.sleep(5.0)
         s.read(["co2"])
     assert chip.periodic
@@ -152,7 +152,7 @@ def test_ambient_pressure_is_applied_and_reapplied_after_a_restart(clock: Clock)
     s.call(fn, {"pressure": 1006.5})
     assert chip.ambient_pressure_hpa == 1006
     chip.power_cycle()
-    for _ in range(4):
+    for _ in range(5):
         clock.sleep(5.0)
         s.read(["co2"])
     assert chip.ambient_pressure_hpa == 1006
@@ -190,3 +190,44 @@ def test_ambient_pressure_survives_a_reconnect(clock: Clock, monkeypatch: pytest
     clock.sleep(5.0)
     p.read(d, ["co2"])
     assert chip.ambient_pressure_hpa == 1006
+
+
+def test_a_sensor_that_stopped_measuring_reads_stale_before_it_is_restarted(
+    clock: Clock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Through the SDK's read path, which marks a reading STALE from its age.
+    from anolis.deviceprovider.v1 import envelope_pb2
+    from anolis_provider_sdk import session as sdk_session
+
+    from anolis_provider_sparkfun.provider import SparkFunProvider
+
+    monkeypatch.setattr(sdk_session, "time", types.SimpleNamespace(time=clock.wall, monotonic=clock))
+    chip = FakeSCD4x(clock)
+    monkeypatch.setattr(SCD4x, "fake", staticmethod(lambda: chip))
+    session = sdk_session.Session(SparkFunProvider({"mock": True, "devices": [{"id": "air0", "type": "scd4x"}]}))
+    hello = envelope_pb2.Request(request_id=1)
+    hello.hello.protocol_version = "v1"
+    session.handle(hello)
+    wait_ready = envelope_pb2.Request(request_id=2)
+    wait_ready.wait_ready.SetInParent()
+    session.handle(wait_ready)
+
+    def quality() -> int:
+        request = envelope_pb2.Request(request_id=2)
+        request.read_signals.device_id = "air0"
+        request.read_signals.signal_ids.append("co2")
+        [value] = session.handle(request).read_signals.values
+        return int(value.quality)
+
+    clock.sleep(5.0)
+    assert quality() == Quality.OK
+    chip.power_cycle()  # idle: no more measurements
+    seen = []
+    for _ in range(60):  # 30 s at the runtime's default 500 ms polling
+        clock.sleep(0.5)
+        seen.append(quality())
+    assert Quality.STALE in seen
+    first_stale, restarted = seen.index(Quality.STALE), seen.index(Quality.UNKNOWN)
+    assert first_stale < restarted
+    assert set(seen[:first_stale]) == {Quality.OK}
+    assert set(seen[first_stale:restarted]) == {Quality.STALE}
