@@ -131,7 +131,11 @@ i2cdetect -y 1                      # a Qwiic Motor Driver shows as 5d
 
 `install.sh` runs the provider's `--check-host` before installing and stops on
 an unmet requirement. The provider reports whether `/dev/i2c-<n>` exists and
-whether the user it runs as can open it.
+whether the user it runs as can open it. It checks the same again at start-up:
+with a requirement unmet it does not open the bus, lists no devices and stays
+not ready, with `host_check=unmet` and the reason in `host_unmet` in its
+`WaitReady` diagnostics and `FAULT` health, until it is restarted on a fixed
+host.
 
 ## Measuring start-up time on the target
 

@@ -158,7 +158,9 @@ providers:
 ```
 
 The host needs I2C enabled and the `anolis` user in the `i2c` group;
-`--check-host` reports both. See [docs/hardware.md](docs/hardware.md) for
+`--check-host` reports both. The provider runs the same check when it starts:
+if either is missing it stays up but not ready, lists no devices, and its
+`WaitReady` reply says which (`host_check=unmet`, `host_unmet`). See [docs/hardware.md](docs/hardware.md) for
 wiring, host preparation and measuring start-up time on the target.
 
 Release binaries are built on Ubuntu 24.04 and need glibc 2.39 or newer: Debian
