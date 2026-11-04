@@ -439,6 +439,10 @@ class FakeSHTC3(_SensirionHumidity):
         super().__init__()
         self.asleep = False
 
+    def acks_probe(self) -> bool:
+        """Asleep, it does not acknowledge an address-only probe either."""
+        return not self.asleep
+
     def write(self, data: bytes) -> None:
         if not data:
             return
@@ -558,8 +562,10 @@ class FakeQwiicBus:
     """A bus with fake chips at fixed addresses, with qwiic_i2c's I2CDriver
     methods mapped onto chip transfers as LinuxI2C maps them onto SMBus calls.
     An address with no chip raises OSError, as Linux reports a NACK, so a
-    driver's probe fails as on hardware. Byte values are truncated to 8 bits,
-    as smbus2 does when it packs them."""
+    driver's probe fails as on hardware. An address-only probe
+    (isDeviceConnected) asks the chip's ``acks_probe()`` where it has one, for
+    a chip that does not always acknowledge one. Byte values are truncated to
+    8 bits, as smbus2 does when it packs them."""
 
     def __init__(self, chips: Mapping[int, FakeChip]) -> None:
         self.chips = dict(chips)
@@ -604,10 +610,11 @@ class FakeQwiicBus:
 
     def isDeviceConnected(self, devAddress: int) -> bool:
         try:
-            self._chip(devAddress)
+            chip = self._chip(devAddress)
         except OSError:
             return False
-        return True
+        acks_probe = getattr(chip, "acks_probe", None)
+        return bool(acks_probe()) if acks_probe is not None else True
 
     # qwiic_i2c names each method in camelCase and in snake_case; drivers use both.
     read_byte = readByte

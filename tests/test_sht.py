@@ -174,3 +174,20 @@ def test_an_absent_sht4x_is_reported_as_the_bus_error_not_a_failed_id_check() ->
     health = p.device_health(p.devices()[0])
     assert health and health.state is DeviceState.UNREACHABLE
     assert "Errno 6" in health.message and "id check" not in health.message
+
+
+def test_a_sleeping_shtc3_does_not_acknowledge_an_address_only_probe() -> None:
+    # What makes the test above pin begin()'s choice not to probe first.
+    chip = FakeSHTC3()
+    sensor = QwiicSHTC3(i2c_driver=FakeQwiicBus({0x70: chip}))
+    assert sensor.is_connected()
+    chip.asleep = True
+    assert not sensor.is_connected()
+
+
+def test_sht4x_waits_as_long_for_its_serial_number_as_for_a_measurement(monkeypatch: pytest.MonkeyPatch) -> None:
+    waits: list[float] = []
+    monkeypatch.setattr("anolis_qwiic_staging.qwiic_sht4x.time.sleep", waits.append)
+    sensor = QwiicSHT4x(0x44, i2c_driver=FakeQwiicBus({0x44: FakeSHT4x()}))
+    assert sensor.get_serial_number() == FakeSHT4x.SERIAL_NUMBER
+    assert waits == [0.010]

@@ -50,6 +50,7 @@ class QwiicSHT4x:
     READ_SERIAL = 0x89
     SOFT_RESET = 0x94
     MEASURE_TIME_S = 0.010  # 8.3 ms maximum at high precision
+    READ_SERIAL_TIME_S = 0.010  # as long as a measurement, and as Adafruit's SHT4x driver waits
     RESET_TIME_S = 0.001
 
     def __init__(self, address: int | None = None, i2c_driver: Any = None) -> None:
@@ -79,7 +80,7 @@ class QwiicSHT4x:
 
     def get_serial_number(self) -> int | None:
         """The 32-bit serial number, or None if the reply fails its CRC."""
-        words = self._command(self.READ_SERIAL, 6, 0.001)
+        words = self._command(self.READ_SERIAL, 6, self.READ_SERIAL_TIME_S)
         return None if words is None else (words[0] << 16) | words[1]
 
     def measure(self) -> tuple[float, float] | None:
