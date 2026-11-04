@@ -154,12 +154,16 @@ binary would change the binary's licence terms; keep it out.
 ## Overlap with the Adafruit provider
 
 This provider runs SparkFun boards on SparkFun's drivers, and
-`anolis-provider-adafruit` runs Adafruit boards on Adafruit's. Both use the
-same Qwiic/STEMMA QT connector, so a board without a driver in one ecosystem
-can still be run by the other provider: SparkFun has no Python driver for the
-SHTC3 or SHT4x, which the Adafruit provider can take. Where both providers
-support a chip, they declare the same device type (as for the BME280), and a
-chip model in mock mode can be shared.
+`anolis-provider-adafruit` runs Adafruit boards on Adafruit's. Each covers its
+own vendor's boards completely, even where the other already supports the same
+chip: someone with only SparkFun boards should not need the Adafruit provider.
+Where both support a chip, they declare the same device type (as for the
+BME280), and a chip model in mock mode can be shared.
+
+SparkFun sells boards whose chips have no driver in its Python list, the SHTC3
+and SHT4x humidity sensors among them. Those need a driver written for this
+provider, as its own package rather than inside a board module (see
+`AGENTS.md`).
 
 | Chip | SparkFun board (this provider) | Adafruit board (adafruit provider) |
 | --- | --- | --- |
