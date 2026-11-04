@@ -3,11 +3,15 @@ throttle mapping, read-back, and the board's watchdog."""
 
 from __future__ import annotations
 
+import io
 from typing import Any
 
 import pytest
 import qwiic_scmd
-from anolis_provider_sdk import Category, DeviceState, ProviderError, ValueType
+from anolis.deviceprovider.v1 import envelope_pb2, status_pb2
+from anolis_provider_sdk import Category, DeviceState, ProviderError, ValueType, serve
+from anolis_provider_sdk.framing import read_frame, write_frame
+from anolis_provider_sdk.values import to_value
 
 from anolis_provider_sparkfun.devices.base import NotAnswering
 from anolis_provider_sparkfun.devices.scmd import (
@@ -247,3 +251,125 @@ def test_connect_waits_for_the_board_to_finish_starting() -> None:
     SCMD(FakeQwiicBus({ADDRESS: chip}), ADDRESS, {})
     assert chip.polls == 3
     assert chip.registers[FakeSCMD.DRIVER_ENABLE] == 1
+
+
+def frames(*requests: Any) -> io.BytesIO:
+    out = io.BytesIO()
+    for request in requests:
+        write_frame(out, request.SerializeToString())
+    out.seek(0)
+    return out
+
+
+def test_ending_the_session_stops_the_motors() -> None:
+    # The runtime goes away (stdin EOF) with a motor running: the provider
+    # stops it on the way out rather than leave it to the watchdog.
+    p = SparkFunProvider({"mock": True, "devices": [{"id": "drive0", "type": "scmd"}]})
+    hello = envelope_pb2.Request(request_id=1)
+    hello.hello.protocol_version = "v1"
+
+    def drive(request_id: int, motor: str) -> Any:
+        request = envelope_pb2.Request(request_id=request_id)
+        request.call.device_id = "drive0"
+        request.call.function_name = f"set_motor_{motor}_throttle"
+        request.call.args["throttle"].CopyFrom(to_value(ValueType.DOUBLE, 0.5))
+        return request
+
+    out = io.BytesIO()
+    running: list[tuple[int, int]] = []
+    original = SparkFunProvider.stop
+
+    def observe(self: SparkFunProvider) -> None:
+        chip = self._bus.chips[ADDRESS]
+        running.append((chip.registers[FakeSCMD.MA_DRIVE], chip.registers[FakeSCMD.MB_DRIVE]))
+        original(self)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(SparkFunProvider, "stop", observe)
+        assert serve(p, frames(hello, drive(2, "a"), drive(3, "b")), out) == 0
+    out.seek(0)
+    codes = []
+    while (payload := read_frame(out)) is not None:
+        response = envelope_pb2.Response()
+        response.ParseFromString(payload)
+        codes.append(response.status.code)
+    assert codes == [status_pb2.Status.Code.Value("CODE_OK")] * 3
+    assert running == [(0x80 + 64, 0x80 + 64)]  # still running when the session ended
+    bus = p._bus
+    assert isinstance(bus, FakeQwiicBus)
+    chip = bus.chips[ADDRESS]
+    assert isinstance(chip, FakeSCMD)
+    r = chip.registers
+    assert (r[FakeSCMD.MA_DRIVE], r[FakeSCMD.MB_DRIVE]) == (STOP, STOP)
+    assert r[FakeSCMD.DRIVER_ENABLE] == 1  # left enabled, as at connect
+    assert r[FakeSCMD.FSAFE_TIME] == 200  # and the watchdog still armed
+
+
+def test_a_board_that_does_not_answer_at_exit_does_not_keep_the_others_running(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    p = SparkFunProvider(
+        {
+            "mock": True,
+            "devices": [{"id": "drive0", "type": "scmd"}, {"id": "drive1", "type": "scmd", "address": 0x58}],
+        }
+    )
+    p.start(0.0)
+    for d in p.devices():
+        for fn in d.type.functions:
+            p.call(d, fn, {"throttle": 0.5})
+    bus = p._bus
+    assert isinstance(bus, FakeQwiicBus)
+    second = bus.chips[0x58]
+    assert isinstance(second, FakeSCMD)
+    del bus.chips[ADDRESS]  # drive0, stopped first, no longer answers
+    with caplog.at_level("WARNING", logger="anolis_provider_sparkfun"):
+        p.stop()
+    assert (second.registers[FakeSCMD.MA_DRIVE], second.registers[FakeSCMD.MB_DRIVE]) == (STOP, STOP)
+    assert any("drive0" in m and "could not be stopped" in m for m in caplog.messages)
+
+
+def test_a_fault_while_stopping_is_raised_after_every_board_is_tried(monkeypatch: pytest.MonkeyPatch) -> None:
+    p = SparkFunProvider(
+        {
+            "mock": True,
+            "devices": [{"id": "drive0", "type": "scmd"}, {"id": "drive1", "type": "scmd", "address": 0x58}],
+        }
+    )
+    p.start(0.0)
+    stopped: list[int] = []
+
+    def stop(self: SCMD) -> None:
+        stopped.append(self._address)
+        if self._address == ADDRESS:
+            raise RuntimeError("a provider bug")
+
+    monkeypatch.setattr(SCMD, "stop", stop)
+    with pytest.raises(RuntimeError, match="provider bug"):
+        p.stop()
+    assert stopped == [ADDRESS, 0x58]
+
+
+def test_stop_before_start_does_nothing() -> None:
+    SparkFunProvider({"mock": True, "devices": [{"id": "drive0", "type": "scmd"}]}).stop()
+
+
+def test_a_channel_that_fails_to_stop_at_exit_does_not_leave_the_other_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    p, chip, _ = started()
+    call(p, "set_motor_a_throttle", 0.5)
+    call(p, "set_motor_b_throttle", -0.5)
+    board = p._slots["drive0"].driver
+    assert isinstance(board, SCMD)
+    real = board._driver.set_drive
+
+    def failing(motor: int, direction: int, level: int) -> None:
+        if motor == 0:
+            raise OSError(5, "Input/output error")
+        real(motor, direction, level)
+
+    monkeypatch.setattr(board._driver, "set_drive", failing)
+    with pytest.raises(OSError):
+        board.stop()
+    assert chip.registers[FakeSCMD.MB_DRIVE] == STOP

@@ -27,6 +27,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   measured every 5 seconds, with each reading stamped with when it was fetched.
   NaN with quality UNKNOWN until the first measurement; a sensor that stopped
   measuring is started again.
+- The provider stops both SCMD channels when it exits, however the session
+  ends (the runtime shuts down or closes the pipe, `SIGTERM`, a malformed
+  frame), leaving the outputs enabled and the watchdog armed; a board that does
+  not answer then is logged and skipped. Before, the motors ran on until the
+  watchdog stopped them, or indefinitely with `failsafe_ms: 0`.
 - Mock mode: a simulated bus with a register model of each board (the SCMD
   firmware, the ADS1015, the BME280, the SCD4x, the SHT4x and the SHTC3) that
   the board's driver runs against unchanged.

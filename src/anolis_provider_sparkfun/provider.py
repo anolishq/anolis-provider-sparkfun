@@ -206,6 +206,27 @@ class SparkFunProvider(Provider):
         for device_id, slot in self._slots.items():
             self._connect(device_id, slot)
 
+    def stop(self) -> None:
+        """The provider is exiting, however the session ended: put every
+        connected board's outputs in their safe state. A board that does not
+        answer is logged and skipped, so the others are still stopped. Any
+        other exception is a provider fault: it is raised once every board has
+        been tried."""
+        fault: Exception | None = None
+        for device_id, slot in self._slots.items():
+            if slot.driver is None:
+                continue
+            try:
+                slot.driver.stop()
+            except Exception as err:
+                if _not_answering(err):
+                    log.warning("%s: could not be stopped at exit: %s", device_id, err)
+                else:
+                    log.exception("%s: stopping it at exit failed", device_id)
+                    fault = fault or err
+        if fault is not None:
+            raise fault
+
     def _connect(self, device_id: str, slot: _Slot) -> DeviceDriver | None:
         try:
             driver = slot.kind(self._bus, slot.address, slot.options)
