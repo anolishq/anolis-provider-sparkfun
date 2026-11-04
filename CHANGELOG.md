@@ -69,6 +69,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shut down by the probe.
 - The staged SHT4x driver waits 10 ms for the serial-number reply, as long as
   for a measurement and as Adafruit's SHT4x driver does, instead of 1 ms.
+- `--check-config` and `--check-host` refuse a config that names a device id
+  twice or puts two devices on one I2C address, with the same message as
+  start-up; before, only `--config` refused it, when the provider was
+  constructed, so a config that `--check-config` passed failed to start.
 - `scripts/cold_start.py` reads each reply's status and the provider's
   readiness, and exits 1 with the reason, printing no figure, when Hello or
   WaitReady is not OK or the provider's start failed; before, a failed start

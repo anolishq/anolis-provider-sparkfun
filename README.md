@@ -47,7 +47,10 @@ devices:
 
 `mock: true` replaces the bus with a simulated one holding a register model of
 each configured board. SparkFun's driver runs unchanged against it. The full
-schema: `anolis-provider-sparkfun --config-schema`.
+schema: `anolis-provider-sparkfun --config-schema`. Beyond the schema, each
+device id and each I2C address may appear once (a device without `address`
+takes its board's default); `--check-config` refuses a config that breaks
+either.
 
 A board that does not answer is listed anyway and reported `UNREACHABLE`; reads
 and calls fail with `UNAVAILABLE` and retry the board each time, so reseating a
