@@ -21,7 +21,15 @@ class DeviceDriver:
     """One supported board: its ADPP declaration and a thin wrapper over the
     SparkFun driver. Construct it with an open qwiic_i2c bus, an address and the
     board's options from the config; the constructor raises NotAnswering, or
-    lets the bus's OSError through, if the board does not answer there."""
+    lets the bus's OSError through, if the board does not answer there.
+
+    A function whose category is CONFIG, that is idempotent and that takes at
+    least one argument is a setting. The provider records the latest arguments
+    of each setting called and, when it reconnects a board it had lost, calls
+    them on the new driver in the order they were last set, so a setting
+    survives a reconnect. Declare a function that way only if calling it again
+    with the same arguments puts the setting back. A setting that fails to
+    apply again leaves the board lost, like any failed transfer."""
 
     type: ClassVar[DeviceType]
     # Addresses the board can be strapped to. The first is the factory default.

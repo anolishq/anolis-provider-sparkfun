@@ -17,6 +17,7 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 from anolis_provider_sdk import (
+    Category,
     Device,
     DeviceHealth,
     DeviceState,
@@ -47,6 +48,13 @@ def _not_answering(err: Exception) -> bool:
     failed I2C transfer, or a board module's NotAnswering. Anything else is a
     fault in the provider."""
     return isinstance(err, NotAnswering) or (isinstance(err, OSError) and err.errno in _BUS_ERRNOS)
+
+
+def _is_setting(function: Function) -> bool:
+    """A function the provider calls again after a reconnect: one that
+    configures the board, gives the same result when repeated, and takes
+    the setting as an argument."""
+    return function.category is Category.CONFIG and function.is_idempotent and bool(function.args)
 
 
 try:
@@ -140,6 +148,9 @@ class _Slot:
         self.options = options
         self.driver: DeviceDriver | None = None
         self.error = "not started"
+        # The latest arguments of each setting function called, in the order
+        # they were last set, for a reconnect to apply again.
+        self.settings: dict[str, tuple[Function, Mapping[str, Any]]] = {}
 
 
 class SparkFunProvider(Provider):
@@ -197,7 +208,12 @@ class SparkFunProvider(Provider):
 
     def _connect(self, device_id: str, slot: _Slot) -> DeviceDriver | None:
         try:
-            slot.driver = slot.kind(self._bus, slot.address, slot.options)
+            driver = slot.kind(self._bus, slot.address, slot.options)
+            # After a loss, a new driver starts from its defaults and the chip
+            # may have lost power: set again what was set before.
+            for function, args in slot.settings.values():
+                driver.call(function, args)
+            slot.driver = driver
         except (OSError, NotAnswering) as err:
             if not _not_answering(err):
                 raise
@@ -237,11 +253,16 @@ class SparkFunProvider(Provider):
     def call(self, device: Device, function: Function, args: Mapping[str, Any]) -> Mapping[str, Any] | None:
         driver = self._driver(device)
         try:
-            return driver.call(function, args)
+            result = driver.call(function, args)
         except (OSError, NotAnswering) as err:
             if not _not_answering(err):
                 raise
             raise self._lost(device, err) from err
+        if _is_setting(function):
+            settings = self._slots[device.id].settings
+            settings.pop(function.name, None)  # to the end: the order they were last set in
+            settings[function.name] = (function, dict(args))
+        return result
 
     def health(self) -> Health:
         if self._bus_error is not None:

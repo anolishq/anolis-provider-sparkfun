@@ -51,7 +51,10 @@ schema: `anolis-provider-sparkfun --config-schema`.
 
 A board that does not answer is listed anyway and reported `UNREACHABLE`; reads
 and calls fail with `UNAVAILABLE` and retry the board each time, so reseating a
-cable recovers it without a restart.
+cable recovers it without a restart. Settings made through functions, such as
+the BME280's sea-level pressure and the SCD4x's ambient pressure, are applied
+again when a lost board answers; they are not kept across a restart of the
+provider.
 
 ## The ADS1015
 

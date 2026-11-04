@@ -41,5 +41,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bus error, and the provider's own health is `FAULT`, instead of `OK`.
 - An SHT4x that does not answer at all is reported with the bus error, not as
   a chip that failed its id check.
+- Settings made through functions (the BME280's sea-level pressure, the
+  SCD4x's ambient pressure) are applied again when a lost board is
+  reconnected, in the order they were last set, instead of silently going
+  back to their defaults.
 
 [Unreleased]: https://github.com/anolishq/anolis-provider-sparkfun/commits/main

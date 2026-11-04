@@ -162,3 +162,40 @@ def test_a_chip_whose_set_up_fails_during_a_read_is_unreachable() -> None:
         assert "starting up" in health.message
     chip.registers[FakeBME280.STATUS] = 0
     assert read(p, "temperature")["temperature"] == pytest.approx(25.08, abs=0.005)
+
+
+def test_the_sea_level_pressure_survives_a_reconnect() -> None:
+    p, chip = started()
+    call(p, "set_sea_level_pressure", sea_level_pressure=950.0)
+    before = read(p, "sea_level_pressure", "altitude")
+    bus = p._bus
+    assert isinstance(bus, FakeQwiicBus)
+    bus.fail = True  # a glitch: the board is lost
+    with pytest.raises(ProviderError, match="stopped answering"):
+        read(p, "temperature")
+    bus.fail = False
+    chip.power_cycle()
+    assert read(p, "sea_level_pressure", "altitude") == before
+
+
+def test_a_setting_that_fails_to_apply_again_leaves_the_board_lost(monkeypatch: pytest.MonkeyPatch) -> None:
+    p, _ = started()
+    call(p, "set_sea_level_pressure", sea_level_pressure=950.0)
+    bus = p._bus
+    assert isinstance(bus, FakeQwiicBus)
+    bus.fail = True
+    with pytest.raises(ProviderError):
+        read(p, "temperature")
+    bus.fail = False
+    original = BME280.call
+
+    def failing(self: BME280, function: Any, args: Any) -> None:
+        raise OSError(5, "Input/output error")
+
+    monkeypatch.setattr(BME280, "call", failing)
+    with pytest.raises(ProviderError, match="not answering"):
+        read(p, "temperature")
+    health = p.device_health(p.devices()[0])
+    assert health and health.state is DeviceState.UNREACHABLE
+    monkeypatch.setattr(BME280, "call", original)
+    assert read(p, "sea_level_pressure") == {"sea_level_pressure": 950.0}
