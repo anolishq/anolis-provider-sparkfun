@@ -121,7 +121,9 @@ def test_conflicting_devices_are_refused(devices: list[dict[str, Any]], message:
     [
         "devices: []",
         "devices: [{id: drive0, type: scmd, address: 0x62}]",
-        "devices: [{id: drive0, type: bme280}]",
+        "devices: [{id: drive0, type: nosuchboard}]",
+        "devices: [{id: env0, type: bme280, failsafe_ms: 1000}]",
+        "devices: [{id: env0, type: bme280, address: 0x5D}]",
         "devices: [{id: Drive0, type: scmd}]",
         "i2c_bus: -1\ndevices: [{id: drive0, type: scmd}]",
         "devices: [{id: drive0, type: scmd}]\nextra: 1",

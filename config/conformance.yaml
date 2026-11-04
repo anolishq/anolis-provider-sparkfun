@@ -1,7 +1,13 @@
-# Mock-mode config for the conformance harness and CI: two motor drivers, one
-# with the watchdog off, on a simulated bus. No hardware needed.
+# Mock-mode config for the conformance harness and CI: an environmental sensor
+# and two motor drivers, one with the watchdog off, on a simulated bus. No
+# hardware needed. The harness calls functions on the first device that has
+# any, so the BME280 comes first: it has both a no-argument function and one
+# with a required argument.
 mock: true
 devices:
+  - id: env0
+    type: bme280
+    label: Enclosure air
   - id: drive0
     type: scmd
     label: Motor driver 0

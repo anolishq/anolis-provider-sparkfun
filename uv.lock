@@ -56,6 +56,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anolis-provider-sdk" },
     { name = "smbus2" },
+    { name = "sparkfun-qwiic-bme280" },
     { name = "sparkfun-qwiic-scmd" },
 ]
 
@@ -82,6 +83,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.0,<1.0.0" },
     { name = "smbus2", specifier = ">=0.5,<1" },
+    { name = "sparkfun-qwiic-bme280", specifier = ">=2.0,<3" },
     { name = "sparkfun-qwiic-scmd", specifier = ">=2.0,<3" },
     { name = "types-jsonschema", marker = "extra == 'dev'", specifier = ">=4.17" },
     { name = "types-protobuf", marker = "extra == 'dev'", specifier = ">=5" },
@@ -774,6 +776,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/87/37/b3f7b501502c4915ba3819d1dc277bf3f5fae4a9d067caa4f502aaddd889/smbus2-0.6.1.tar.gz", hash = "sha256:2b043372abf8f6029a632c3aab36b641c5d5872b1cbad599fc68e17ac4fd90a5", size = 17274, upload-time = "2026-04-09T20:37:54.821Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/96/f2/c78a68bd739ac8fc608747cff73a4db3b19f3135658ed4e64374f6425cbf/smbus2-0.6.1-py2.py3-none-any.whl", hash = "sha256:650feeb27ca0ed58b07db4c10201c2a662c41305b7bf6e5fab9d888056f48180", size = 11767, upload-time = "2026-04-09T20:37:53.728Z" },
+]
+
+[[package]]
+name = "sparkfun-qwiic-bme280"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sparkfun-qwiic-i2c" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/92/b7/72d7eadab8a1f4f45079ef26a7951a537a85721fa6a777a20b96dc885d6a/sparkfun_qwiic_bme280-2.0.0.tar.gz", hash = "sha256:b1ac0b70637acbcfbb0cb79b2781b0729446f52631838c1c9099e9c42eadc41c", size = 11744, upload-time = "2025-03-12T23:22:37.402Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/40/5c/6aad41b4a8551a80faeb6170112137ef64c5458bfe6440907319564bd906/sparkfun_qwiic_bme280-2.0.0-py3-none-any.whl", hash = "sha256:634f0a407b34938e6cea10f5a0d97a429109dd285e27ada4c8af44d0e8c4c673", size = 9596, upload-time = "2025-03-12T23:22:36.188Z" },
 ]
 
 [[package]]

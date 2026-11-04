@@ -9,6 +9,7 @@ the hardware does, from the first register read on.
 
 from __future__ import annotations
 
+import struct
 import time
 from collections.abc import Callable, Mapping, Sequence
 from typing import Protocol
@@ -58,6 +59,95 @@ class RegisterChip:
 
     def on_write(self, register: int, value: int) -> None:
         self.registers[register] = value
+
+
+class FakeBME280(RegisterChip):
+    """A Bosch BME280 holding the calibration and raw readings of the datasheet's
+    worked example (BST-BME280-DS002, section 8.1): 25.08 C and 1006.53 hPa
+    through the compensation. The humidity calibration is a typical part's,
+    giving about 45 %.
+
+    Modelled because a driver or the provider can get each of them wrong:
+
+    - Power-on (and a soft reset, 0xB6 to 0xE0) leaves the chip in sleep mode
+      with every setting 0, and the data registers at their reset values,
+      0x80000 for temperature and pressure and 0x8000 for humidity. Those
+      convert to plausible-looking numbers, so a restarted chip that nobody
+      reconfigures reads wrong rather than failing.
+    - A measurement runs only outside sleep mode and only for a quantity whose
+      oversampling is not 0 ("skipped"); a skipped one keeps reading its reset
+      value. The humidity setting in ctrl_hum takes effect at the next write to
+      ctrl_meas (datasheet 5.4.3).
+    - ``chip_id`` 0x58 makes it a BMP280, which has no humidity.
+
+    The model measures instantly: a read outside sleep mode returns the latest
+    raw values set with ``set_raw``.
+    """
+
+    CHIP_ID_REG, RESET_REG = 0xD0, 0xE0
+    CTRL_HUM, STATUS, CTRL_MEAS, CONFIG = 0xF2, 0xF3, 0xF4, 0xF5
+    DATA = 0xF7  # press_msb .. hum_lsb, 0xF7 to 0xFE
+    CHIP_ID = 0x60
+    SKIPPED_TP, SKIPPED_H = 0x80000, 0x8000
+
+    def __init__(self, chip_id: int = CHIP_ID) -> None:
+        super().__init__()
+        self.chip_id = chip_id
+        self.raw = {"temperature": 519888, "pressure": 415148, "humidity": 28000}
+        self.power_cycle()
+
+    def power_cycle(self) -> None:
+        """Every register at its power-on value, as at start-up, after a soft
+        reset, or after a brown-out."""
+        r = self.registers
+        r[:] = bytes(256)
+        r[self.CHIP_ID_REG] = self.chip_id
+        # dig_T1..T3, dig_P1..P9 from 0x88, little-endian.
+        r[0x88:0xA0] = struct.pack(
+            "<HhhHhhhhhhhh", 27504, 26435, -1000, 36477, -10685, 3024, 2855, 140, -7, 15500, -14600, 6000
+        )
+        r[0xA1] = 75  # dig_H1
+        # dig_H2 = 362, dig_H3 = 0, dig_H4 = 313, dig_H5 = 50, dig_H6 = 30, packed as the chip packs them.
+        r[0xE1:0xE8] = struct.pack("<hBbBbb", 362, 0, 313 >> 4, ((50 & 0xF) << 4) | (313 & 0xF), 50 >> 4, 30)
+        self._humidity_on = False
+        self._store(self.SKIPPED_TP, self.SKIPPED_TP, self.SKIPPED_H)
+
+    def set_raw(self, *, temperature: int, pressure: int, humidity: int) -> None:
+        """Raw ADC values the next measurement returns: 20-bit temperature and
+        pressure, 16-bit humidity."""
+        self.raw = {"temperature": temperature, "pressure": pressure, "humidity": humidity}
+
+    def _store(self, temperature: int, pressure: int, humidity: int) -> None:
+        self.registers[0xF7:0xFA] = (pressure << 4).to_bytes(3, "big")
+        self.registers[0xFA:0xFD] = (temperature << 4).to_bytes(3, "big")
+        self.registers[0xFD:0xFF] = humidity.to_bytes(2, "big")
+
+    def _measure(self) -> None:
+        meas = self.registers[self.CTRL_MEAS]
+        if meas & 0b11 == 0:  # sleep: the data registers hold their last values
+            return
+        r = self.raw
+        self._store(
+            r["temperature"] if meas >> 5 else self.SKIPPED_TP,
+            r["pressure"] if (meas >> 2) & 0b111 else self.SKIPPED_TP,
+            r["humidity"] if self._humidity_on and self.chip_id == self.CHIP_ID else self.SKIPPED_H,
+        )
+
+    def on_write(self, register: int, value: int) -> None:
+        if register == self.RESET_REG:
+            if value == 0xB6:
+                self.power_cycle()
+            return
+        if register not in (self.CTRL_HUM, self.CTRL_MEAS, self.CONFIG):
+            return  # the id, the status, the data and the calibration are read-only
+        super().on_write(register, value)
+        if register == self.CTRL_MEAS:
+            self._humidity_on = bool(self.registers[self.CTRL_HUM] & 0b111)
+
+    def read(self, length: int) -> bytes:
+        if self._pointer == self.DATA or self._pointer in (0xFA, 0xFD):
+            self._measure()
+        return super().read(length)
 
 
 class FakeSCMD(RegisterChip):
