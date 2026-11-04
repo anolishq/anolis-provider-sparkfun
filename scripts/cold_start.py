@@ -78,6 +78,16 @@ def _bytes(value: int | bytes) -> bytes:
     return value if isinstance(value, bytes) else b""
 
 
+def _not_ready_reason(diagnostics: dict[str, str]) -> str:
+    """Why WaitReady says not ready: the start error, or the host requirements
+    the provider found unmet at startup (executable profile section 6)."""
+    if diagnostics.get("start_error"):
+        return diagnostics["start_error"]
+    if diagnostics.get("host_check") == "unmet":
+        return f"host requirements unmet: {diagnostics.get('host_unmet') or '(none named)'}"
+    return "(no reason given)"
+
+
 def check_reply(name: str, reply: bytes) -> None:
     """Raise ColdStartError unless the reply's status is OK and, for
     WaitReady, the provider reports it is ready."""
@@ -102,9 +112,7 @@ def check_reply(name: str, reply: bytes) -> None:
                     kv = dict(fields(_bytes(entry)))
                     diagnostics[_bytes(kv.get(1, b"")).decode()] = _bytes(kv.get(2, b"")).decode()
     if diagnostics.get("ready") != "true":
-        raise ColdStartError(
-            f"WaitReady: the provider is not ready: {diagnostics.get('start_error', '(no start_error given)')}"
-        )
+        raise ColdStartError(f"WaitReady: the provider is not ready: {_not_ready_reason(diagnostics)}")
 
 
 def frame(body: bytes) -> bytes:

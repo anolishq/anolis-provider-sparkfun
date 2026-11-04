@@ -73,7 +73,20 @@ def test_a_reply_is_checked_for_its_status_and_readiness() -> None:
         cold_start.check_reply("Hello", envelope_pb2.Response(request_id=1).SerializeToString())
 
 
-def test_it_fails_when_the_provider_does_not_start(tmp_path: Path) -> None:
+@pytest.mark.parametrize("ready", ["false", None])
+def test_an_ok_wait_ready_that_is_not_ready_fails_without_a_start_error(ready: str | None) -> None:
+    # The SDK answers WaitReady OK with ready=false and no start_error when a
+    # host requirement is unmet, so the ready flag itself is what is checked,
+    # not the status code or the presence of start_error.
+    cold_start = load()
+    reply = response(status_pb2.Status.CODE_OK, ready=ready)
+    with pytest.raises(cold_start.ColdStartError, match="not ready"):
+        cold_start.check_reply("WaitReady", reply)
+
+
+def test_it_fails_when_the_provider_is_not_ready(tmp_path: Path) -> None:
+    # /dev/i2c-99 does not exist, so the host check at start-up is unmet: both
+    # replies are OK and only WaitReady's ready flag says the provider is not up.
     provider = shutil.which("anolis-provider-sparkfun", path=str(Path(sys.executable).parent))
     assert provider
     config = tmp_path / "config.yaml"
@@ -85,5 +98,19 @@ def test_it_fails_when_the_provider_does_not_start(tmp_path: Path) -> None:
         timeout=120,
     )
     assert proc.returncode == 1
-    assert "not ready" in proc.stderr and "/dev/i2c-99" in proc.stderr
+    assert "cold_start: WaitReady: the provider is not ready: host requirements unmet: i2c_bus" in proc.stderr
+    assert "/dev/i2c-99" in proc.stderr  # from the provider's own log, which shares stderr
     assert "ready ms" not in proc.stdout
+
+
+def test_a_not_ready_reply_names_the_unmet_host_requirement() -> None:
+    # With an unmet host requirement the SDK sets host_check and host_unmet and
+    # no start_error; the script's own message must say why.
+    cold_start = load()
+    r = envelope_pb2.Response(request_id=2)
+    r.status.code = status_pb2.Status.CODE_OK
+    d = r.wait_ready.diagnostics
+    d["ready"], d["init_time_ms"], d["host_check"] = "false", "3", "unmet"
+    d["host_unmet"] = "i2c_bus: /dev/i2c-99 does not exist"
+    with pytest.raises(cold_start.ColdStartError, match="host requirements unmet: i2c_bus: /dev/i2c-99 does not exist"):
+        cold_start.check_reply("WaitReady", bytes(r.SerializeToString()))
