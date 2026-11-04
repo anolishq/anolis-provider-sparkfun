@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 import qwiic_scmd
 
-from anolis_provider_sparkfun.mock import FakeBME280, FakeQwiicBus, FakeSCD4x, FakeSCMD, sensirion_crc
+from anolis_provider_sparkfun.mock import FakeADS1015, FakeBME280, FakeQwiicBus, FakeSCD4x, FakeSCMD, sensirion_crc
 
 ADDRESS = 0x5D
 
@@ -215,3 +215,24 @@ def test_the_scd4x_ignores_an_argument_with_a_bad_crc() -> None:
 
 def test_sensirion_crc_matches_the_datasheet_example() -> None:
     assert sensirion_crc(b"\xbe\xef") == 0x92
+
+
+def test_the_ads1015_single_shot_clears_os_until_the_conversion_is_done() -> None:
+    clock = Clock()
+    chip = FakeADS1015(clock)
+    chip.volts[1] = 1.0
+    bus = FakeQwiicBus({0x48: chip})
+    assert bus.readBlock(0x48, FakeADS1015.CONFIG, 2) == [0x85, 0x83]
+    config = 0x8000 | 0x5000 | 0x0200 | 0x0100 | 0x0080 | 0x0003  # OS, AIN1, +/-4.096 V, single, 1600 SPS
+    bus.writeBlock(0x48, FakeADS1015.CONFIG, [config >> 8, config & 0xFF])
+    assert bus.readBlock(0x48, FakeADS1015.CONFIG, 2)[0] & 0x80 == 0
+    clock.now += 1 / 1600
+    assert bus.readBlock(0x48, FakeADS1015.CONFIG, 2)[0] & 0x80
+    code = int.from_bytes(bytes(bus.readBlock(0x48, FakeADS1015.CONVERSION, 2)), "big") >> 4
+    assert code == 500  # 1.0 V at 2 mV a count
+
+
+def test_the_ads1015_reads_below_ground_as_a_negative_code() -> None:
+    chip = FakeADS1015(Clock())
+    chip.volts[0] = -0.004
+    assert chip._code(0x4000 | 0x0400) >> 4 == 0xFFC  # -4 counts at 1 mV

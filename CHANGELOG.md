@@ -13,6 +13,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   two DC motor channels, stopped when the board connects, with the throttle
   read back from the board. The board's own watchdog (`failsafe_ms`, default
   2000) stops both motors if the provider stops writing to it.
+- The TI ADS1015 (`ads1015`): four analog inputs in volts, with the input
+  range as the `full_scale_v` option. Inputs below ground read negative, and a
+  chip at the address that is not an ADS1015 is refused.
 - The Bosch BME280 (`bme280`): temperature, humidity and pressure, with the
   same device type as the Adafruit provider's. A BMP280 at the address is
   refused, and a chip that restarted on its own is set up again.
@@ -20,7 +23,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   measured every 5 seconds, with each reading stamped with when it was fetched.
   NaN with quality UNKNOWN until the first measurement; a sensor that stopped
   measuring is started again.
-- Mock mode: a simulated bus with a register model of each board (the SCMD firmware, the BME280, the SCD4x) that
+- Mock mode: a simulated bus with a register model of each board (the SCMD firmware, the ADS1015, the BME280, the SCD4x) that
   SparkFun's driver runs against unchanged.
 
 [Unreleased]: https://github.com/anolishq/anolis-provider-sparkfun/commits/main

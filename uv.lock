@@ -56,6 +56,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anolis-provider-sdk" },
     { name = "smbus2" },
+    { name = "sparkfun-qwiic-ads1015" },
     { name = "sparkfun-qwiic-bme280" },
     { name = "sparkfun-qwiic-scd4x" },
     { name = "sparkfun-qwiic-scmd" },
@@ -84,6 +85,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.0,<1.0.0" },
     { name = "smbus2", specifier = ">=0.5,<1" },
+    { name = "sparkfun-qwiic-ads1015", specifier = ">=2.0,<3" },
     { name = "sparkfun-qwiic-bme280", specifier = ">=2.0,<3" },
     { name = "sparkfun-qwiic-scd4x", specifier = ">=2.0,<3" },
     { name = "sparkfun-qwiic-scmd", specifier = ">=2.0,<3" },
@@ -778,6 +780,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/87/37/b3f7b501502c4915ba3819d1dc277bf3f5fae4a9d067caa4f502aaddd889/smbus2-0.6.1.tar.gz", hash = "sha256:2b043372abf8f6029a632c3aab36b641c5d5872b1cbad599fc68e17ac4fd90a5", size = 17274, upload-time = "2026-04-09T20:37:54.821Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/96/f2/c78a68bd739ac8fc608747cff73a4db3b19f3135658ed4e64374f6425cbf/smbus2-0.6.1-py2.py3-none-any.whl", hash = "sha256:650feeb27ca0ed58b07db4c10201c2a662c41305b7bf6e5fab9d888056f48180", size = 11767, upload-time = "2026-04-09T20:37:53.728Z" },
+]
+
+[[package]]
+name = "sparkfun-qwiic-ads1015"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sparkfun-qwiic-i2c" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e4/f6/99ac0e928e4a130cb94baf315a13a43de66911cb5b5ed8fa1a6708295af0/sparkfun_qwiic_ads1015-2.0.0.tar.gz", hash = "sha256:ad81d3bbb879e658fb0567c0b5f8c3305dd08cc07ca52ced1e95613fdbf14eb8", size = 10187, upload-time = "2025-03-12T20:33:50.343Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/38/14cce816beb346698066f8d14643573174b9d6b64a36f2469ec7daf30f95/sparkfun_qwiic_ads1015-2.0.0-py3-none-any.whl", hash = "sha256:59f6f323bbd64061faa24056dadf6ddb51bb6a5400ab29b52b1cfb93ef6a8de5", size = 8233, upload-time = "2025-03-12T20:33:48.998Z" },
 ]
 
 [[package]]
