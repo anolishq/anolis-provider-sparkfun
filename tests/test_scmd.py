@@ -122,6 +122,7 @@ def test_each_function_drives_only_its_own_channel(name: str, register: int, oth
 
 
 def test_the_driver_full_forward_bug_does_not_reach_the_board() -> None:
+    # https://github.com/sparkfun/qwiic_scmd_py/issues/3
     p, chip, _ = started()
     call(p, "set_motor_a_throttle", 1.0)
     assert read(p, "motor_a_throttle") == {"motor_a_throttle": 1.0}

@@ -101,7 +101,8 @@ def drive_args(register: int) -> tuple[int, int]:
     ``register``. set_drive halves the level with Python's round(), so the level
     is chosen to land on the register rather than scaled from the throttle; a
     scaled level of 255 forward would compute 0x100, which goes out on the bus
-    as 0x00, full reverse."""
+    as 0x00, full reverse. Reported upstream:
+    https://github.com/sparkfun/qwiic_scmd_py/issues/3"""
     step = register - STOP
     if step >= 0:
         return 1, 2 * step
@@ -112,7 +113,8 @@ class SCMD(DeviceDriver):
     type = TYPE
     # Set by the config jumpers on the underside: the firmware answers I2C at
     # 0x58 + jumpers - 3 for jumper values 3 to 0xC (SCMD_FW serial.c and main.c).
-    # sparkfun-qwiic-scmd lists only five of these.
+    # sparkfun-qwiic-scmd lists only five of these:
+    # https://github.com/sparkfun/qwiic_scmd_py/issues/4
     addresses = (0x5D, *(a for a in range(0x58, 0x62) if a != 0x5D))
     options = {
         "failsafe_ms": {

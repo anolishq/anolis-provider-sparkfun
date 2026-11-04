@@ -90,6 +90,7 @@ def test_between_measurements_the_latest_is_returned_with_its_fetch_time(clock: 
 
 def test_the_driver_begin_reports_success_for_a_chip_whose_serial_fails_its_crc(clock: Clock) -> None:
     # Why the board checks the serial number itself.
+    # https://github.com/sparkfun/qwiic_scd4x_py/issues/1
     driver = qwiic_scd4x.QwiicSCD4x(ADDRESS, i2c_driver=FakeQwiicBus({ADDRESS: Garbled(clock)}))
     assert driver.begin(measBegin=False) is True
     assert driver.get_serial_number() is None
