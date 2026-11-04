@@ -16,6 +16,7 @@ from anolis_provider_sdk import (
     ProviderError,
     StatusCode,
     ValueType,
+    run,
 )
 from anolis_provider_sdk.cli import ConfigError, load_config
 
@@ -123,6 +124,32 @@ def test_health_is_ok_before_start() -> None:
 def test_conflicting_devices_are_refused(devices: list[dict[str, Any]], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         SparkFunProvider({"mock": True, "devices": devices})
+
+
+@pytest.mark.parametrize(
+    ("devices", "message"),
+    [
+        ("[{id: a, type: scmd}, {id: a, type: scmd, address: 0x58}]", "device id 'a' is configured twice"),
+        # The second takes the SCMD's factory address, which the first names.
+        ("[{id: a, type: scmd, address: 0x5D}, {id: b, type: scmd}]", "0x5d is configured for both 'a' and 'b'"),
+    ],
+)
+@pytest.mark.parametrize(("verb", "code"), [("--check-config", 1), ("--check-host", 2)])
+def test_the_cli_refuses_conflicting_devices(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], devices: str, message: str, verb: str, code: int
+) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(f"mock: true\ndevices: {devices}\n")
+    assert run(SparkFunProvider, [verb, str(path)]) == code
+    captured = capsys.readouterr()
+    assert message in captured.err
+    assert captured.out == ""
+
+
+def test_the_cli_accepts_two_boards_on_different_addresses(tmp_path: Path) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text("mock: true\ndevices: [{id: a, type: scmd}, {id: b, type: scmd, address: 0x58}]\n")
+    assert run(SparkFunProvider, ["--check-config", str(path)]) == 0
 
 
 @pytest.mark.parametrize(
