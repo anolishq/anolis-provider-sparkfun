@@ -352,3 +352,24 @@ def test_a_fault_while_stopping_is_raised_after_every_board_is_tried(monkeypatch
 
 def test_stop_before_start_does_nothing() -> None:
     SparkFunProvider({"mock": True, "devices": [{"id": "drive0", "type": "scmd"}]}).stop()
+
+
+def test_a_channel_that_fails_to_stop_at_exit_does_not_leave_the_other_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    p, chip, _ = started()
+    call(p, "set_motor_a_throttle", 0.5)
+    call(p, "set_motor_b_throttle", -0.5)
+    board = p._slots["drive0"].driver
+    assert isinstance(board, SCMD)
+    real = board._driver.set_drive
+
+    def failing(motor: int, direction: int, level: int) -> None:
+        if motor == 0:
+            raise OSError(5, "Input/output error")
+        real(motor, direction, level)
+
+    monkeypatch.setattr(board._driver, "set_drive", failing)
+    with pytest.raises(OSError):
+        board.stop()
+    assert chip.registers[FakeSCMD.MB_DRIVE] == STOP

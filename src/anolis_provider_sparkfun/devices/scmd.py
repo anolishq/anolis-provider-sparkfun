@@ -199,5 +199,11 @@ class SCMD(DeviceDriver):
         connect leaves the board in. 0x80 already stops both channels, and
         nothing in the driver or its documentation says a disabled board is
         safer than an enabled one at 0x80."""
-        for motor in MOTORS.values():
-            self._driver.set_drive(motor, *drive_args(STOP))
+        error: Exception | None = None
+        for motor in MOTORS.values():  # both, even if one fails
+            try:
+                self._driver.set_drive(motor, *drive_args(STOP))
+            except Exception as err:
+                error = error or err
+        if error is not None:
+            raise error
