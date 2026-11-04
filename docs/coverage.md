@@ -7,8 +7,9 @@ unit of work: a module in `devices/` as described in
 bus (`i2c_driver=`), which is how the provider shares one Linux bus and
 substitutes a fake one in mock mode.
 
-Supported today: the Qwiic Motor Driver (SCMD), the ADS1015, the BME280 and
-the SCD4x. Everything else is a candidate.
+Supported today: the Qwiic Motor Driver (SCMD), the ADS1015, the BME280, the
+SCD4x, and the SHT4x and SHTC3 on this repo's own drivers. Everything else is
+a candidate.
 
 Sources, all retrieved 2026-11-03:
 
@@ -160,10 +161,10 @@ chip: someone with only SparkFun boards should not need the Adafruit provider.
 Where both support a chip, they declare the same device type (as for the
 BME280), and a chip model in mock mode can be shared.
 
-SparkFun sells boards whose chips have no driver in its Python list, the SHTC3
-and SHT4x humidity sensors among them. Those need a driver written for this
-provider, as its own package rather than inside a board module (see
-`AGENTS.md`).
+SparkFun sells boards whose chips have no driver in its Python list. For the
+SHT4x and SHTC3 humidity sensors this provider carries its own drivers, in
+SparkFun's style in `src/anolis_qwiic_staging/`, staged to be offered to
+SparkFun once proven on hardware; both are supported (`sht4x`, `shtc3`).
 
 | Chip | SparkFun board (this provider) | Adafruit board (adafruit provider) |
 | --- | --- | --- |
