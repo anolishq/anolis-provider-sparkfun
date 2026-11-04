@@ -38,7 +38,9 @@ def test_each_input_reads_its_own_voltage() -> None:
 
 def test_the_driver_default_mode_returns_the_previous_inputs_result() -> None:
     # Why the board reads single-shot: in continuous mode, straight after a mux
-    # change the conversion register still holds the old input's result.
+    # change the conversion register still holds the old input's result, and the
+    # driver reads it without waiting.
+    # https://github.com/sparkfun/qwiic_ads1015_py/issues/1 (item 1)
     clock = Clock()
     chip = FakeADS1015(clock)
     chip.volts = [1.0, 2.0, 0.0, 0.0]
@@ -50,6 +52,7 @@ def test_the_driver_default_mode_returns_the_previous_inputs_result() -> None:
 
 
 def test_below_ground_reads_negative_where_the_driver_reads_near_full_scale() -> None:
+    # https://github.com/sparkfun/qwiic_ads1015_py/issues/1 (item 4)
     s, chip = connected(2.048)
     chip.volts[0] = -0.002
     assert s.read(["ain0"])["ain0"] == pytest.approx(-0.002, abs=0.001)

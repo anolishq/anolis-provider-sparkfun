@@ -15,7 +15,8 @@ Two things the driver does not do, done here:
 
 - Its ``begin()`` returns True whatever its checks found. The board checks the
   serial number read itself, so a chip that does not answer as an SCD4x is
-  reported unreachable.
+  reported unreachable. Reported upstream:
+  https://github.com/sparkfun/qwiic_scd4x_py/issues/1
 - A sensor that restarted on its own (a brown-out) comes back idle and stops
   measuring, with nothing to show for it but a missing data-ready flag. When
   no measurement has arrived for four periods (20 s), the board starts the

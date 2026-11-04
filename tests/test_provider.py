@@ -255,6 +255,7 @@ def test_an_error_that_is_not_a_bus_error_on_read_is_not_unreachable() -> None:
 def test_the_real_bus_opens_the_configured_bus_number(monkeypatch: pytest.MonkeyPatch) -> None:
     # SparkFun's unreleased qwiic_i2c drops iBus and picks the bus from the board
     # model; this fails if an upgrade brings that in.
+    # https://github.com/sparkfun/Qwiic_I2C_Py/issues/32
     opened: list[int] = []
 
     class FakeSMBus:

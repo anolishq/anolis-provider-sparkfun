@@ -5,10 +5,14 @@ Four single-ended analog inputs, read as volts (I2C 0x48 by default; 0x49 to
 Driver: sparkfun-qwiic-ads1015.
 
 Each read is a single-shot conversion per input, waiting for the chip's
-conversion-ready flag; the driver's default continuous mode returns the
-previous input's result straight after switching inputs. Codes below ground
-are sign-extended here, which the driver does not do, so a slightly negative
-input reads as a small negative voltage rather than near full scale.
+conversion-ready flag. In the driver's default continuous mode,
+``get_single_ended`` skips its conversion delay and reads straight after
+switching inputs, which can return the previous input's result. Codes below
+ground are sign-extended here, so a slightly negative input reads as a small
+negative voltage; the driver's millivolt reading uses the unsigned code and
+reads it near full scale. Both are reported upstream, with two more driver
+bugs this board does not depend on:
+https://github.com/sparkfun/qwiic_ads1015_py/issues/1
 
 The driver waits for the conversion-ready flag with no timeout, so a chip that
 answers at the address but never sets it would hang the provider. The chip has
