@@ -20,10 +20,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 EXPECTED_SKIPS: dict[str, str] = {
     "test_call_declared_results_are_populated": (
-        "no function here takes no arguments and returns a result; the motor driver has no such operation"
-    ),
-    "test_call_valid_no_arg_function_accepted": (
-        "every function here drives a motor and takes its throttle; a no-argument one would be invented for the test"
+        "no function here takes no arguments and returns a result; none of the boards has such an operation"
     ),
 }
 

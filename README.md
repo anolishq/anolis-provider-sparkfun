@@ -15,6 +15,7 @@ already maintains.
 
 | `type` | Board | Driver | Addresses |
 | --- | --- | --- | --- |
+| `bme280` | Qwiic Atmospheric Sensor (SEN-15440), and the BME280 on SparkFun's Environmental Combo: temperature, humidity, pressure | `sparkfun-qwiic-bme280` | `0x77` (default), `0x76` |
 | `scmd` | Qwiic Motor Driver (ROB-15451), and the Serial Controlled Motor Driver (ROB-13911) strapped for I2C: two DC motors | `sparkfun-qwiic-scmd` | `0x5D` (default), `0x58` to `0x61` |
 
 All boards share one Linux I2C bus (`i2c_bus`, default 1: the Raspberry Pi
@@ -29,6 +30,9 @@ devices:
     type: scmd
     label: Pump drive
     failsafe_ms: 2000
+  - id: env0
+    type: bme280
+    label: Enclosure air
 ```
 
 `mock: true` replaces the bus with a simulated one holding a register model of
@@ -38,6 +42,15 @@ schema: `anolis-provider-sparkfun --config-schema`.
 A board that does not answer is listed anyway and reported `UNREACHABLE`; reads
 and calls fail with `UNAVAILABLE` and retry the board each time, so reseating a
 cable recovers it without a restart.
+
+## The BME280
+
+`bme280` declares the same signals and functions as the Adafruit provider's
+`bme280`: `temperature` (C), `relative_humidity` (%) and `pressure` (hPa), with
+`altitude` and `sea_level_pressure` on request, `set_sea_level_pressure` and
+`soft_reset`. The provider refuses a BMP280 at the address, which has no
+humidity sensor, and sets the chip up again if it finds it has restarted on its
+own: a restarted BME280 does not fail, it reads plausible wrong values.
 
 ## Motors, the software stop and the watchdog
 

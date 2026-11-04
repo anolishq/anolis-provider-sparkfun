@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 import qwiic_scmd
 
-from anolis_provider_sparkfun.mock import FakeQwiicBus, FakeSCMD
+from anolis_provider_sparkfun.mock import FakeBME280, FakeQwiicBus, FakeSCMD
 
 ADDRESS = 0x5D
 
@@ -135,3 +135,33 @@ def test_a_power_cycle_restores_the_power_on_values() -> None:
     assert chip.registers[FakeSCMD.DRIVER_ENABLE] == 0
     assert chip.registers[FakeSCMD.FSAFE_TIME] == 0
     assert chip.registers[FakeSCMD.MA_DRIVE] == 0x80
+
+
+def test_the_bme280_powers_on_asleep_with_reset_values_in_its_data_registers() -> None:
+    chip = FakeBME280()
+    bus = FakeQwiicBus({0x77: chip})
+    assert bus.readByte(0x77, FakeBME280.CTRL_MEAS) == 0
+    assert bus.readBlock(0x77, FakeBME280.DATA, 8) == [0x80, 0, 0, 0x80, 0, 0, 0x80, 0]
+
+
+def test_the_bme280_humidity_setting_takes_effect_at_the_next_ctrl_meas_write() -> None:
+    chip = FakeBME280()
+    bus = FakeQwiicBus({0x77: chip})
+    bus.writeByte(0x77, FakeBME280.CTRL_HUM, 0x01)
+    bus.writeByte(0x77, FakeBME280.CTRL_MEAS, 0b001_001_00)  # temperature and pressure only, still asleep
+    bus.writeByte(0x77, FakeBME280.CTRL_MEAS, 0b001_001_11)  # normal mode
+    assert int.from_bytes(bytes(bus.readBlock(0x77, 0xFD, 2)), "big") == 28000
+    chip.power_cycle()
+    bus.writeByte(0x77, FakeBME280.CTRL_MEAS, 0b001_001_11)
+    bus.writeByte(0x77, FakeBME280.CTRL_HUM, 0x01)  # after ctrl_meas: not applied yet
+    assert int.from_bytes(bytes(bus.readBlock(0x77, 0xFD, 2)), "big") == FakeBME280.SKIPPED_H
+
+
+def test_the_bme280_soft_reset_restores_power_on_values_and_calibration_is_read_only() -> None:
+    chip = FakeBME280()
+    bus = FakeQwiicBus({0x77: chip})
+    bus.writeByte(0x77, FakeBME280.CTRL_MEAS, 0x27)
+    bus.writeByte(0x77, 0x88, 0x00)
+    assert chip.registers[0x88] != 0x00
+    bus.writeByte(0x77, FakeBME280.RESET_REG, 0xB6)
+    assert chip.registers[FakeBME280.CTRL_MEAS] == 0

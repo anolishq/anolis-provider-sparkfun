@@ -59,6 +59,19 @@ runtime (`sudo systemctl stop anolis-runtime`, or kill it). The motor should
 stop within about two seconds with nothing else done. After the runtime is back,
 `failsafe_trips` reads 1 or more.
 
+## The BME280
+
+The Qwiic Atmospheric Sensor carries a Bosch BME280: temperature, humidity and
+pressure.
+
+- **Address:** `0x77` from the factory; cut the address jumper for `0x76`, to
+  run two on one bus.
+- **Check it:** `i2cdetect -y 1` shows `77`, and the readings come back near
+  the room's: about 20 to 25 C, 30 to 60 %, and roughly 950 to 1050 hPa at
+  altitudes near sea level.
+- **Placement:** keep it away from warm parts, the Pi's processor and motor
+  drivers included; it reads its own surroundings.
+
 ## Preparing the host
 
 On Raspberry Pi OS:
