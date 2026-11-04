@@ -98,6 +98,19 @@ def test_it_fails_when_the_provider_is_not_ready(tmp_path: Path) -> None:
         timeout=120,
     )
     assert proc.returncode == 1
-    assert "cold_start: WaitReady: the provider is not ready" in proc.stderr
+    assert "cold_start: WaitReady: the provider is not ready: host requirements unmet: i2c_bus" in proc.stderr
     assert "/dev/i2c-99" in proc.stderr  # from the provider's own log, which shares stderr
     assert "ready ms" not in proc.stdout
+
+
+def test_a_not_ready_reply_names_the_unmet_host_requirement() -> None:
+    # With an unmet host requirement the SDK sets host_check and host_unmet and
+    # no start_error; the script's own message must say why.
+    cold_start = load()
+    r = envelope_pb2.Response(request_id=2)
+    r.status.code = status_pb2.Status.CODE_OK
+    d = r.wait_ready.diagnostics
+    d["ready"], d["init_time_ms"], d["host_check"] = "false", "3", "unmet"
+    d["host_unmet"] = "i2c_bus: /dev/i2c-99 does not exist"
+    with pytest.raises(cold_start.ColdStartError, match="host requirements unmet: i2c_bus: /dev/i2c-99 does not exist"):
+        cold_start.check_reply("WaitReady", bytes(r.SerializeToString()))
