@@ -214,7 +214,7 @@ was read rather than a file to rerun.
 
 | Figure | Value | Method |
 | --- | --- | --- |
-| Submodules in `Qwiic_Py/.gitmodules` | 60 (51 `drivers/`, 9 `drivers_linux_only/`) | `path = ` lines in `Qwiic_Py/.gitmodules`, counted per top-level directory |
+| Submodules in `Qwiic_Py/.gitmodules` | 60 (51 `drivers/`, 9 `drivers_linux_only/`) | `path` lines in `Qwiic_Py/.gitmodules`, counted per top-level directory |
 | Distinct repositories | 59 | submodule URLs compared case-insensitively: one duplicate, the u-blox GPS repository, listed once in each group under different capitalisation |
 | Device drivers | 58 | 59 less `qwiic_i2c`, the bus library |
 | Licences | 57 MIT, 2 GPL-3.0 (the duplicated u-blox entry), 1 none found (Titan GPS) | each repository's `LICENSE` file, read and classified |
