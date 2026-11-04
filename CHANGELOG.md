@@ -49,5 +49,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a sensor that stopped measuring (after 20 s); before, the restart came at the
   same 15 s as the stale threshold, so a stuck sensor went from `OK` straight
   to NaN without ever reading `STALE`.
+- The ADS1015 identity check writes back the config word it found when the
+  chip at the address is not an ADS1015, so a TMP102 at 0x48 is no longer left
+  shut down by the probe.
 
 [Unreleased]: https://github.com/anolishq/anolis-provider-sparkfun/commits/main

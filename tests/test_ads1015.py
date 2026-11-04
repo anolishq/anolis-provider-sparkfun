@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 import qwiic_ads1015
 
-from anolis_provider_sparkfun.devices.ads1015 import ADS1015, signed12
+from anolis_provider_sparkfun.devices.ads1015 import ADS1015, PROBE, signed12
 from anolis_provider_sparkfun.devices.base import NotAnswering
 from anolis_provider_sparkfun.mock import FakeADS1015, FakeQwiicBus, RegisterChip
 from anolis_provider_sparkfun.provider import SparkFunProvider
@@ -107,3 +107,39 @@ def test_the_provider_reads_it_in_mock_mode() -> None:
 
 def test_addresses_are_the_drivers_with_the_factory_default_first() -> None:
     assert ADS1015.addresses == tuple(qwiic_ads1015.QwiicADS1015.available_addresses)
+
+
+class TMP102:
+    """A TI TMP102 temperature sensor, which also answers at 0x48: 16-bit
+    registers behind a pointer. Its config register (pointer 1) powers on at
+    0x60A0, converting; R1 and R0 (bits 14 and 13) read 1 and bits 3 to 0 read
+    0, and SD (bit 8) shuts the sensor down. Records each register write."""
+
+    def __init__(self) -> None:
+        self.registers = {0: 0x1900, 1: 0x60A0, 2: 0x4B00, 3: 0x5000}
+        self.writes: list[tuple[int, int]] = []
+        self._pointer = 0
+
+    def write(self, data: bytes) -> None:
+        self._pointer = data[0] & 0b11
+        if len(data) == 3 and self._pointer != 0:
+            value = int.from_bytes(data[1:3], "big")
+            self.writes.append((self._pointer, value))
+            if self._pointer == 1:
+                value = (value | 0x6000) & 0xFFF0
+            self.registers[self._pointer] = value
+
+    def select(self, register: int) -> None:
+        self._pointer = register & 0b11
+
+    def read(self, length: int) -> bytes:
+        return self.registers[self._pointer].to_bytes(2, "big")[:length]
+
+
+def test_a_tmp102_at_the_address_is_refused_and_left_as_it_was() -> None:
+    chip = TMP102()
+    with pytest.raises(NotAnswering, match="config register reads"):
+        ADS1015(FakeQwiicBus({ADDRESS: chip}), ADDRESS, {})
+    assert chip.writes[0] == (1, PROBE)  # the probe sets SD: the sensor shuts down
+    assert chip.registers[1] == 0x60A0  # and it is converting again
+    assert chip.writes[-1] == (1, 0x60A0)
