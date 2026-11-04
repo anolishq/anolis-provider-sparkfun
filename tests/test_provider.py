@@ -7,7 +7,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from anolis_provider_sdk import DeviceState, HealthState, ProviderError, StatusCode
+from anolis_provider_sdk import (
+    Arg,
+    Category,
+    DeviceState,
+    Function,
+    HealthState,
+    ProviderError,
+    StatusCode,
+    ValueType,
+)
 from anolis_provider_sdk.cli import ConfigError, load_config
 
 from anolis_provider_sparkfun.devices.scmd import SCMD
@@ -290,3 +299,29 @@ def test_when_the_bus_never_opens_every_device_is_unreachable(monkeypatch: pytes
     assert isinstance(provider, SparkFunProvider)
     assert provider.health().state is HealthState.FAULT
     assert "/dev/i2c-57" in provider.health().message
+
+
+def test_settings_are_applied_again_in_the_order_they_were_last_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Two settings and a function that takes no argument, recorded as the
+    # board receives them.
+    def function(name: str, *args: Arg) -> Function:
+        return Function(name, args=args, category=Category.CONFIG, is_idempotent=True)
+
+    set_a = function("set_a", Arg("value", ValueType.DOUBLE))
+    set_b = function("set_b", Arg("value", ValueType.DOUBLE))
+    reset = function("reset")
+    applied: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(SCMD, "call", lambda self, fn, args: applied.append((fn.name, dict(args))))
+    p = started(mock())
+    d = p.devices()[0]
+    p.call(d, set_a, {"value": 1.0})
+    p.call(d, set_b, {"value": 2.0})
+    p.call(d, set_a, {"value": 3.0})
+    p.call(d, reset, {})
+    applied.clear()
+    bus(p).fail = True
+    with pytest.raises(ProviderError):
+        p.read(d, ALL_SIGNALS)
+    bus(p).fail = False
+    p.read(d, ALL_SIGNALS)
+    assert applied == [("set_b", {"value": 2.0}), ("set_a", {"value": 3.0})]
