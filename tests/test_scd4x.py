@@ -165,3 +165,28 @@ def test_the_provider_lists_it_and_reads_it_in_mock_mode() -> None:
     p.start(0.0)
     assert p.device_health(p.devices()[0]) is None
     assert set(p.read(p.devices()[0], SIGNALS)) == set(SIGNALS)
+
+
+def test_ambient_pressure_survives_a_reconnect(clock: Clock, monkeypatch: pytest.MonkeyPatch) -> None:
+    from anolis_provider_sdk import ProviderError
+
+    from anolis_provider_sparkfun.provider import SparkFunProvider
+
+    chip = FakeSCD4x(clock)
+    monkeypatch.setattr(SCD4x, "fake", staticmethod(lambda: chip))
+    p = SparkFunProvider({"mock": True, "devices": [{"id": "air0", "type": "scd4x"}]})
+    p.start(0.0)
+    d = p.devices()[0]
+    fn = SCD4x.type.function_by_name("set_ambient_pressure")
+    assert fn
+    p.call(d, fn, {"pressure": 1006.5})
+    bus = p._bus
+    assert isinstance(bus, FakeQwiicBus)
+    bus.fail = True  # the cable is out, and the sensor loses power with it
+    with pytest.raises(ProviderError):
+        p.read(d, ["co2"])
+    chip.power_cycle()
+    bus.fail = False
+    clock.sleep(5.0)
+    p.read(d, ["co2"])
+    assert chip.ambient_pressure_hpa == 1006

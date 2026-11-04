@@ -30,6 +30,18 @@ that exception narrowly and raise `NotAnswering` from it. Every other
 exception, a `ValueError` or `RuntimeError` included, is a fault in the
 provider and is reported as one.
 
+## Settings
+
+A function whose category is `CONFIG`, that is idempotent and that takes at
+least one argument is a setting, such as the BME280's
+`set_sea_level_pressure`. The provider records the latest arguments of each
+setting called on a board and, when it reconnects that board after losing it,
+calls them again on the new driver, in the order they were last set: a new
+driver starts from its defaults, and the chip may have lost power with the
+cable. Declare a function that way only if calling it again with the same
+arguments puts the setting back. A setting that fails to apply again leaves the
+board lost, like any failed transfer, and the next read or call retries it.
+
 ## The fake chip
 
 Mock mode runs SparkFun's real driver against `FakeQwiicBus`, so the fake has to
