@@ -77,7 +77,8 @@ TYPE = DeviceType(
             "set_ambient_pressure",
             description=(
                 "Compensate the CO2 reading for the ambient pressure, for example from a BME280 on the same bus. "
-                "Not kept across a restart of the sensor."
+                "Kept across a restart of the sensor and a reconnect of the board; not across a restart of the "
+                "provider."
             ),
             args=(
                 Arg(

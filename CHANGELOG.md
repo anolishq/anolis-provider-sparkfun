@@ -27,8 +27,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   measured every 5 seconds, with each reading stamped with when it was fetched.
   NaN with quality UNKNOWN until the first measurement; a sensor that stopped
   measuring is started again.
-- Mock mode: a simulated bus with a register model of each board (the SCMD firmware, the ADS1015, the BME280, the SCD4x) that
-  SparkFun's driver runs against unchanged.
+- Mock mode: a simulated bus with a register model of each board (the SCMD
+  firmware, the ADS1015, the BME280, the SCD4x, the SHT4x and the SHTC3) that
+  the board's driver runs against unchanged.
 
 ### Fixed
 
