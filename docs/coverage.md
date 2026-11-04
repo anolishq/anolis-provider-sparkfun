@@ -196,7 +196,8 @@ Ranked by value per effort for a lab-automation runtime.
 
 Done: **SCMD** (it has a hardware command watchdog: with `FSAFE_TIME` set, a
 stopped provider stops the motors, which the Adafruit Motor HAT cannot do),
-**ADS1015**, **BME280** and **SCD4x**.
+**ADS1015**, **BME280**, **SCD4x**, and the **SHT4x** and **SHTC3** on this
+repo's staged drivers.
 
 1. **Qwiic Relay** (four boards, one driver). The clearest safe state there
    is. Confirm the power-on relay state on hardware first.

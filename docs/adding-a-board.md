@@ -70,8 +70,12 @@ from the runtime's safety contract:
   no arguments, a required boolean or string, and a channel-index argument (0 is
   not a channel). Use one function per output instead, as `scmd` does.
 - **Read outputs back from the chip,** not from what the driver was last told,
-  so a signal shows what the hardware is doing. A register pattern the provider
-  never writes reads with quality `UNKNOWN`.
+  so a signal shows what the hardware is doing. A register pattern the
+  firmware or chip gives a meaning reads as that meaning with quality `OK`,
+  even one the provider never writes: `scmd` reads drive register 0x00 as -1,
+  because the firmware drives 0x00 full reverse, and another master on the bus
+  may have written it. Quality `UNKNOWN` is for a pattern that means nothing
+  the hardware does.
 
 Say in the module whether the board has a command watchdog, and use it when it
 has one, as `scmd` does. Without one, the outputs hold their last value if the
