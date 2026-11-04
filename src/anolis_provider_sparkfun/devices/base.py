@@ -10,11 +10,18 @@ from anolis_provider_sdk import DeviceType, Function
 from ..mock import FakeChip
 
 
+class NotAnswering(Exception):
+    """Raised by a board module when the board at the address is absent, is a
+    different chip, or has not finished starting. The provider reports the
+    board UNREACHABLE and tries it again on the next read or call, as it does
+    for a failed I2C transfer. Any other exception is a provider fault."""
+
+
 class DeviceDriver:
     """One supported board: its ADPP declaration and a thin wrapper over the
     SparkFun driver. Construct it with an open qwiic_i2c bus, an address and the
-    board's options from the config; the constructor raises if the board does
-    not answer there."""
+    board's options from the config; the constructor raises NotAnswering, or
+    lets the bus's OSError through, if the board does not answer there."""
 
     type: ClassVar[DeviceType]
     # Addresses the board can be strapped to. The first is the factory default.

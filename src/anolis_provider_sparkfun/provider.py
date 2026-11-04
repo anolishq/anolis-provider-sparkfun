@@ -30,7 +30,7 @@ from anolis_provider_sdk import (
     run,
 )
 
-from .devices import KINDS, DeviceDriver
+from .devices import KINDS, DeviceDriver, NotAnswering
 from .mock import FakeQwiicBus
 
 log = logging.getLogger("anolis_provider_sparkfun")
@@ -42,8 +42,11 @@ log = logging.getLogger("anolis_provider_sparkfun")
 _BUS_ERRNOS = {errno.ENXIO, errno.EREMOTEIO, errno.EIO, errno.ETIMEDOUT, errno.EAGAIN}
 
 
-def _is_bus_error(err: OSError) -> bool:
-    return err.errno in _BUS_ERRNOS
+def _not_answering(err: Exception) -> bool:
+    """Whether an exception from a board means the board is not answering: a
+    failed I2C transfer, or a board module's NotAnswering. Anything else is a
+    fault in the provider."""
+    return isinstance(err, NotAnswering) or (isinstance(err, OSError) and err.errno in _BUS_ERRNOS)
 
 
 try:
@@ -171,24 +174,32 @@ class SparkFunProvider(Provider):
                 )
             )
         self._bus: Any = None
+        self._started = False
+        self._bus_error: str | None = None
 
     # ---- lifecycle ----------------------------------------------------------------
 
     def start(self, budget_s: float) -> None:
-        if self.config.get("mock", False):
-            self._bus = FakeQwiicBus({s.address: s.kind.fake() for s in self._slots.values()})
-        else:
-            self._bus = open_bus(self.config.get("i2c_bus", 1))
+        self._started = True
+        try:
+            if self.config.get("mock", False):
+                self._bus = FakeQwiicBus({s.address: s.kind.fake() for s in self._slots.values()})
+            else:
+                self._bus = open_bus(self.config.get("i2c_bus", 1))
+        except Exception as err:
+            # Every board is unreachable, and says why.
+            self._bus_error = f"the I2C bus did not open: {err}"
+            for slot in self._slots.values():
+                slot.error = self._bus_error
+            raise
         for device_id, slot in self._slots.items():
             self._connect(device_id, slot)
 
     def _connect(self, device_id: str, slot: _Slot) -> DeviceDriver | None:
         try:
             slot.driver = slot.kind(self._bus, slot.address, slot.options)
-        except (OSError, ValueError, RuntimeError) as err:
-            # OSError: nothing acknowledged the address (or the bus failed); ValueError:
-            # another chip answers there; RuntimeError: the board has not finished starting.
-            if isinstance(err, OSError) and not _is_bus_error(err):
+        except (OSError, NotAnswering) as err:
+            if not _not_answering(err):
                 raise
             slot.driver = None
             slot.error = f"{slot.kind.type.id} at {slot.address:#04x}: {err}"
@@ -207,7 +218,7 @@ class SparkFunProvider(Provider):
             raise ProviderError(StatusCode.UNAVAILABLE, f"{device.id} is not answering: {slot.error}")
         return driver
 
-    def _lost(self, device: Device, err: OSError) -> ProviderError:
+    def _lost(self, device: Device, err: Exception) -> ProviderError:
         slot = self._slots[device.id]
         slot.driver = None
         slot.error = f"{slot.kind.type.id} at {slot.address:#04x}: {err}"
@@ -218,8 +229,8 @@ class SparkFunProvider(Provider):
         driver = self._driver(device)
         try:
             return driver.read(signal_ids)
-        except OSError as err:
-            if not _is_bus_error(err):
+        except (OSError, NotAnswering) as err:
+            if not _not_answering(err):
                 raise
             raise self._lost(device, err) from err
 
@@ -227,20 +238,22 @@ class SparkFunProvider(Provider):
         driver = self._driver(device)
         try:
             return driver.call(function, args)
-        except OSError as err:
-            if not _is_bus_error(err):
+        except (OSError, NotAnswering) as err:
+            if not _not_answering(err):
                 raise
             raise self._lost(device, err) from err
 
     def health(self) -> Health:
+        if self._bus_error is not None:
+            return Health(HealthState.FAULT, self._bus_error)
         down = [device_id for device_id, slot in self._slots.items() if slot.driver is None]
-        if down and self._bus is not None:
+        if down and self._started:
             return Health(HealthState.DEGRADED, f"not answering: {', '.join(down)}")
         return Health()
 
     def device_health(self, device: Device) -> DeviceHealth | None:
         slot = self._slots[device.id]
-        if slot.driver is None and self._bus is not None:
+        if slot.driver is None and self._started:
             return DeviceHealth(DeviceState.UNREACHABLE, slot.error)
         return None
 

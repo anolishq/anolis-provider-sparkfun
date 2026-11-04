@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .ads1015 import ADS1015
-from .base import DeviceDriver
+from .base import DeviceDriver, NotAnswering
 from .bme280 import BME280
 from .scd4x import SCD4x
 from .scmd import SCMD
@@ -18,4 +18,4 @@ KINDS: dict[str, type[DeviceDriver]] = {
     "shtc3": SHTC3,
 }
 
-__all__ = ["KINDS", "DeviceDriver"]
+__all__ = ["KINDS", "DeviceDriver", "NotAnswering"]

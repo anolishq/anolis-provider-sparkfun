@@ -7,9 +7,10 @@ from typing import Any
 
 import pytest
 import qwiic_bme280
-from anolis_provider_sdk import DeviceState
+from anolis_provider_sdk import DeviceState, ProviderError, StatusCode
 
-from anolis_provider_sparkfun.devices.bme280 import BME280
+from anolis_provider_sparkfun.devices.base import NotAnswering
+from anolis_provider_sparkfun.devices.bme280 import BME280, IM_UPDATE
 from anolis_provider_sparkfun.mock import FakeBME280, FakeQwiicBus, RegisterChip
 from anolis_provider_sparkfun.provider import SparkFunProvider
 
@@ -66,7 +67,7 @@ def test_the_driver_takes_a_bmp280_for_a_bme280() -> None:
 
 
 def test_a_bmp280_is_refused_and_reported_unreachable() -> None:
-    with pytest.raises(ValueError, match="BMP280"):
+    with pytest.raises(NotAnswering, match="BMP280"):
         BME280(FakeQwiicBus({ADDRESS: FakeBME280(chip_id=0x58)}), ADDRESS, {})
     p, _ = started(FakeBME280(chip_id=0x58))
     with pytest.raises(Exception, match="BMP280"):
@@ -76,7 +77,7 @@ def test_a_bmp280_is_refused_and_reported_unreachable() -> None:
 
 
 def test_another_chip_at_the_address_is_refused() -> None:
-    with pytest.raises(ValueError, match="chip id 0x00"):
+    with pytest.raises(NotAnswering, match="chip id 0x00"):
         BME280(FakeQwiicBus({ADDRESS: RegisterChip()}), ADDRESS, {})
 
 
@@ -89,7 +90,7 @@ def test_a_chip_that_never_finishes_starting_is_refused(monkeypatch: pytest.Monk
                 return b"\x01"
             return super().read(length)
 
-    with pytest.raises(RuntimeError, match="starting up"):
+    with pytest.raises(NotAnswering, match="starting up"):
         BME280(FakeQwiicBus({ADDRESS: Stuck()}), ADDRESS, {})
 
 
@@ -143,3 +144,21 @@ def test_a_board_that_comes_back_after_being_lost_reads_again() -> None:
 
 def test_addresses_are_the_drivers_with_the_factory_default_first() -> None:
     assert BME280.addresses == tuple(qwiic_bme280.QwiicBme280.available_addresses)
+
+
+def test_a_chip_whose_set_up_fails_during_a_read_is_unreachable() -> None:
+    # The in-place set-up after a restart raises NotAnswering: the board is lost
+    # and retried, not a provider fault.
+    p, chip = started()
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("anolis_provider_sparkfun.devices.bme280.STARTUP_TIMEOUT_S", 0.01)
+        chip.power_cycle()
+        chip.registers[FakeBME280.STATUS] = IM_UPDATE  # stuck copying its calibration
+        with pytest.raises(ProviderError) as err:
+            read(p, "temperature")
+        assert err.value.code is StatusCode.UNAVAILABLE
+        health = p.device_health(p.devices()[0])
+        assert health and health.state is DeviceState.UNREACHABLE
+        assert "starting up" in health.message
+    chip.registers[FakeBME280.STATUS] = 0
+    assert read(p, "temperature")["temperature"] == pytest.approx(25.08, abs=0.005)

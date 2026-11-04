@@ -161,3 +161,16 @@ def test_a_chip_that_fails_its_id_check_is_unreachable(kind: str, chip_class: ty
     health = p.device_health(p.devices()[0])
     assert health and health.state is DeviceState.UNREACHABLE
     assert "id check" in health.message
+
+
+def test_an_absent_sht4x_is_reported_as_the_bus_error_not_a_failed_id_check() -> None:
+    p = provider("sht4x", FakeSHT4x())
+    bus = p._bus
+    assert isinstance(bus, FakeQwiicBus)
+    del bus.chips[0x44]
+    p._slots["rh0"].driver = None  # connect again, to nothing
+    with pytest.raises(ProviderError, match="not answering"):
+        p.read(p.devices()[0], SIGNALS)
+    health = p.device_health(p.devices()[0])
+    assert health and health.state is DeviceState.UNREACHABLE
+    assert "Errno 6" in health.message and "id check" not in health.message

@@ -33,7 +33,7 @@ import qwiic_scd4x
 from anolis_provider_sdk import Arg, Category, DeviceType, Function, Quality, Reading, Signal, ValueType
 
 from ..mock import FakeSCD4x
-from .base import DeviceDriver
+from .base import DeviceDriver, NotAnswering
 
 log = logging.getLogger(__name__)
 
@@ -108,9 +108,9 @@ class SCD4x(DeviceDriver):
         # 500 ms), reads the serial number and the sensor type, and turns on
         # automatic self-calibration, the sensor's default.
         if not d.begin(measBegin=False):
-            raise ValueError(f"no SCD4x at {self._address:#04x}")
+            raise NotAnswering(f"no SCD4x at {self._address:#04x}")
         if d.get_serial_number() is None:
-            raise ValueError(f"no SCD4x at {self._address:#04x}: its serial number did not read back intact")
+            raise NotAnswering(f"no SCD4x at {self._address:#04x}: its serial number did not read back intact")
         d.start_periodic_measurement()
         if self._pressure_hpa is not None:
             d.set_ambient_pressure(self._pressure_hpa * 100)

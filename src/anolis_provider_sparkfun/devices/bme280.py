@@ -28,7 +28,7 @@ import qwiic_bme280
 from anolis_provider_sdk import Arg, Category, DeviceType, Function, Signal, ValueType
 
 from ..mock import FakeBME280
-from .base import DeviceDriver
+from .base import DeviceDriver, NotAnswering
 
 log = logging.getLogger(__name__)
 
@@ -103,16 +103,16 @@ class BME280(DeviceDriver):
         found = int(self._bus.readByte(self._address, qwiic_bme280.QwiicBme280.BME280_CHIP_ID_REG))
         if found != CHIP_ID:
             kind = "a BMP280, which has no humidity sensor" if found == 0x58 else f"chip id {found:#04x}"
-            raise ValueError(f"no BME280 at {self._address:#04x}: found {kind}")
+            raise NotAnswering(f"no BME280 at {self._address:#04x}: found {kind}")
         deadline = time.monotonic() + STARTUP_TIMEOUT_S
         while int(self._bus.readByte(self._address, qwiic_bme280.QwiicBme280.BME280_STAT_REG)) & IM_UPDATE:
             if time.monotonic() > deadline:
-                raise RuntimeError(f"BME280 at {self._address:#04x} has not finished starting up")
+                raise NotAnswering(f"BME280 at {self._address:#04x} has not finished starting up")
             time.sleep(0.001)
         # Calibration read, 1x oversampling on all three, normal mode, and a
         # wait for the first measurement.
         if not self._driver.begin():
-            raise ValueError(f"no BME280 at {self._address:#04x}")
+            raise NotAnswering(f"no BME280 at {self._address:#04x}")
 
     @staticmethod
     def fake() -> FakeBME280:

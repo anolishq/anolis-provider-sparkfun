@@ -9,6 +9,7 @@ import pytest
 import qwiic_scmd
 from anolis_provider_sdk import Category, DeviceState, ProviderError, ValueType
 
+from anolis_provider_sparkfun.devices.base import NotAnswering
 from anolis_provider_sparkfun.devices.scmd import (
     SCMD,
     STOP,
@@ -208,7 +209,7 @@ def test_a_board_that_comes_back_after_being_lost_is_stopped() -> None:
 
 
 def test_another_chip_at_the_address_is_not_taken_for_an_scmd() -> None:
-    with pytest.raises(ValueError, match="ID register"):
+    with pytest.raises(NotAnswering, match="ID register"):
         SCMD(FakeQwiicBus({ADDRESS: RegisterChip()}), ADDRESS, {})
 
 
@@ -216,7 +217,7 @@ def test_a_board_that_never_finishes_starting_is_unreachable(monkeypatch: pytest
     monkeypatch.setattr("anolis_provider_sparkfun.devices.scmd.ENUMERATION_TIMEOUT_S", 0.05)
     chip = FakeSCMD()
     chip.registers[FakeSCMD.STATUS_1] = 0x00
-    with pytest.raises(RuntimeError, match="starting up"):
+    with pytest.raises(NotAnswering, match="starting up"):
         SCMD(FakeQwiicBus({ADDRESS: chip}), ADDRESS, {})
     p = SparkFunProvider({"mock": True, "devices": [{"id": "drive0", "type": "scmd"}]})
     with monkeypatch.context() as mp:

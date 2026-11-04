@@ -34,7 +34,7 @@ import qwiic_scmd
 from anolis_provider_sdk import Arg, Category, DeviceType, Function, Signal, ValueType
 
 from ..mock import FakeSCMD
-from .base import DeviceDriver
+from .base import DeviceDriver, NotAnswering
 
 log = logging.getLogger(__name__)
 
@@ -134,11 +134,11 @@ class SCMD(DeviceDriver):
         self._driver = qwiic_scmd.QwiicScmd(address, i2c_driver=i2c)
         found = self._driver.begin()
         if found != qwiic_scmd.QwiicScmd.ID_WORD:
-            raise ValueError(f"no SCMD at {address:#04x}: ID register reads {found:#04x}")
+            raise NotAnswering(f"no SCMD at {address:#04x}: ID register reads {found:#04x}")
         deadline = time.monotonic() + ENUMERATION_TIMEOUT_S
         while not self._driver.ready():
             if time.monotonic() > deadline:
-                raise RuntimeError(f"SCMD at {address:#04x} has not finished starting up")
+                raise NotAnswering(f"SCMD at {address:#04x} has not finished starting up")
             time.sleep(0.01)
         self._make_safe()
 
