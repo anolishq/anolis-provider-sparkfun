@@ -14,7 +14,8 @@ The driver waits for the conversion-ready flag with no timeout, so a chip that
 answers at the address but never sets it would hang the provider. The chip has
 no id register; the board checks that it holds a written config word as an
 ADS1015 does (a TMP102, which also sits at 0x48, does not) and refuses
-anything else.
+anything else, writing back the word it found there first so the other chip
+is left as it was.
 
 An input above the chip's supply plus 0.3 V, or below ground minus 0.3 V,
 can damage it, whatever ``full_scale_v`` says.
@@ -90,10 +91,14 @@ class ADS1015(DeviceDriver):
         self._driver.use_conversion_ready(True)
 
     def _check_identity(self) -> None:
+        original = self._bus.readBlock(self._address, ADS.kPointerConfig, 2)
         self._bus.writeBlock(self._address, ADS.kPointerConfig, [PROBE >> 8, PROBE & 0xFF])
         back = self._bus.readBlock(self._address, ADS.kPointerConfig, 2)
         found = (back[0] << 8) | back[1]
         if found != PROBE | ADS.kConfigOsReady:
+            # Not an ADS1015: put back what its register 1 held, so a TMP102,
+            # whose shutdown bit the probe sets, is left converting.
+            self._bus.writeBlock(self._address, ADS.kPointerConfig, list(original))
             raise NotAnswering(f"no ADS1015 at {self._address:#04x}: its config register reads {found:#06x}")
 
     @staticmethod
