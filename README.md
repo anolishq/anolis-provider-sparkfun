@@ -141,8 +141,14 @@ trip is counted in the `failsafe_trips` signal. After the provider exits the
 board is no longer written to, so the watchdog trips once its period has passed
 with the motors already stopped, and `failsafe_trips` counts that too.
 
-It is still a software stop, not an emergency stop: cut the motor supply for
-that. See the runtime's
+It is still a software stop, not an emergency stop. For an emergency stop, cut
+the board's logic supply as well as its motor supply. While a stop is in force
+the runtime writes nothing to the board, and its polling carries on and keeps
+the watchdog fed, so a board whose logic stays powered keeps its last throttle
+and drives it again when the stop releases and the motor supply returns. With
+its logic cut, the board comes back from the stop with its drivers disabled and
+its outputs at zero. Sensor boards belong on a supply the stop does not cut, so
+they keep their settings. See the runtime's
 [safety guide](https://github.com/anolishq/anolis/blob/main/docs/safety.md).
 
 ## Install
