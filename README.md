@@ -148,7 +148,7 @@ the watchdog fed, so a board whose logic stays powered keeps its last throttle
 and drives it again when the stop releases and the motor supply returns. With
 its logic cut, the board comes back from the stop with its drivers disabled and
 its outputs at zero. Sensor boards belong on a supply the stop does not cut, so
-they keep their readings and settings. See the runtime's
+they keep their settings. See the runtime's
 [safety guide](https://github.com/anolishq/anolis/blob/main/docs/safety.md).
 
 ## Install
