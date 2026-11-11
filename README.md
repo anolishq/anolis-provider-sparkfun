@@ -7,7 +7,7 @@ top of SparkFun's own [Qwiic Python drivers](https://github.com/sparkfun/Qwiic_P
 so each board is a short declaration plus a call into the driver SparkFun
 already maintains.
 
-> **Status: unreleased.** It passes the anolis-protocol 1.10.0 conformance
+> **Status: v0.1.0.** It passes the anolis-protocol 1.10.0 conformance
 > harness at level 2 in mock mode, from source and as the frozen binary, on
 > x86_64 and arm64. Not yet verified on hardware.
 

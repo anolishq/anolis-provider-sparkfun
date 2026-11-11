@@ -1,6 +1,6 @@
 [project]
 name = "anolis-provider-sparkfun"
-version = "0.0.0"
+version = "0.1.0"
 description = "Anolis device provider for SparkFun Qwiic hardware, built on SparkFun's Qwiic Python drivers"
 readme = "README.md"
 license = { text = "Apache-2.0" }
