@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-11
+
 ### Added
 
 - The provider, built on the Python provider SDK and SparkFun's Qwiic Python
@@ -35,6 +37,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Mock mode: a simulated bus with a register model of each board (the SCMD
   firmware, the ADS1015, the BME280, the SCD4x, the SHT4x and the SHTC3) that
   the board's driver runs against unchanged.
+- A frozen single-file release binary for x86_64 and arm64, laid out for anolis
+  `install.sh`, with the config schema assets the Workbench reads.
+- `scripts/cold_start.py`, which measures start-up time on the target.
 
 ### Changed
 
@@ -78,4 +83,5 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   WaitReady is not OK or the provider's start failed; before, a failed start
   still printed a ready time and exited 0.
 
-[Unreleased]: https://github.com/anolishq/anolis-provider-sparkfun/commits/main
+[Unreleased]: https://github.com/anolishq/anolis-provider-sparkfun/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/anolishq/anolis-provider-sparkfun/releases/tag/v0.1.0
