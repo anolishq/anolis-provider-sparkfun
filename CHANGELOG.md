@@ -37,6 +37,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Mock mode: a simulated bus with a register model of each board (the SCMD
   firmware, the ADS1015, the BME280, the SCD4x, the SHT4x and the SHTC3) that
   the board's driver runs against unchanged.
+- A frozen single-file release binary for x86_64 and arm64, laid out for anolis
+  `install.sh`, with the config schema assets the Workbench reads.
+- `scripts/cold_start.py`, which measures start-up time on the target.
 
 ### Changed
 
