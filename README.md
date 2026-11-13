@@ -9,7 +9,8 @@ already maintains.
 
 > **Status: v0.1.0.** It passes the anolis-protocol 1.10.0 conformance
 > harness at level 2 in mock mode, from source and as the frozen binary, on
-> x86_64 and arm64. Not yet verified on hardware.
+> x86_64 and arm64. Which boards have run on real hardware:
+> [Hardware support](https://anolishq.github.io/get-started/hardware).
 
 ## Supported boards
 
